@@ -168,3 +168,20 @@ export const activities = pgTable(
   },
   (t) => [index("activities_user_date_idx").on(t.userId, t.date)],
 );
+
+/* ───────────── Acceso para IAs / integraciones ───────────── */
+
+/** Tokens personales de API. Solo se guarda el hash SHA-256. scope: read | edit */
+export const apiTokens = pgTable(
+  "api_tokens",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    scope: text("scope").notNull().default("edit"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (t) => [index("api_tokens_user_idx").on(t.userId)],
+);

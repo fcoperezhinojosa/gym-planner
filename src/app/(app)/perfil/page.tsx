@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
+import { eq } from "drizzle-orm";
 import { logout } from "@/app/actions";
+import { ApiTokens } from "@/components/ApiTokens";
+import { getDb, schema } from "@/db";
 import { ProfileForm } from "@/components/ProfileForm";
 import { Button, Card, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -15,6 +19,14 @@ const LINKS = [
 
 export default async function ProfilePage() {
   const user = await requireUser();
+  const db = await getDb();
+  const tokens = await db
+    .select({ id: schema.apiTokens.id, name: schema.apiTokens.name, scope: schema.apiTokens.scope, createdAt: schema.apiTokens.createdAt, lastUsedAt: schema.apiTokens.lastUsedAt })
+    .from(schema.apiTokens)
+    .where(eq(schema.apiTokens.userId, user.id));
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const baseUrl = (process.env.APP_URL ?? `${h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")}://${host}`).replace(/\/$/, "");
   return (
     <div className="space-y-4">
       <PageHeader title="Más" subtitle={user.email} />
@@ -36,6 +48,13 @@ export default async function ProfilePage() {
       <Card className="p-4">
         <h2 className="mb-3 font-semibold">Perfil</h2>
         <ProfileForm name={user.name} weight={user.bodyWeightKg} />
+      </Card>
+      <Card className="p-4">
+        <h2 className="mb-3 font-semibold">Acceso para IAs</h2>
+        <ApiTokens
+          baseUrl={baseUrl}
+          tokens={tokens.map((t) => ({ ...t, createdAt: t.createdAt.toISOString(), lastUsedAt: t.lastUsedAt?.toISOString() ?? null }))}
+        />
       </Card>
       <form action={logout}>
         <Button variant="secondary" className="w-full">Cerrar sesión</Button>

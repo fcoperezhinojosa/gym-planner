@@ -8,6 +8,7 @@ import { getDb, schema as s } from "@/db";
 import { endSession, requireUser, startSession } from "@/lib/auth";
 import { isValidISODate, todayISO } from "@/lib/dates";
 import { ACTIVITY_TYPES, estimateKcal, isIntensity, metFor, type Intensity } from "@/lib/kcal";
+import { generateToken } from "@/lib/api-tokens";
 import { lastSetsByExercise } from "@/lib/data";
 
 export type FormState = { error?: string; ok?: boolean } | undefined;
@@ -434,4 +435,28 @@ export async function createCustomExercise(_: FormState, form: FormData): Promis
   const id = `u${user.id}_${name.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "_").slice(0, 40)}_${Date.now().toString(36)}`;
   await db.insert(s.exercises).values({ id, name, primaryMuscle, equipment, ownerId: user.id, images: image ? [image] : [] });
   redirect(`/ejercicios/${encodeURIComponent(id)}`);
+}
+
+/* ───────────── Acceso para IAs ───────────── */
+
+/** Crea un token personal. El valor en claro solo se devuelve aquí, una vez. */
+export async function createApiToken(_: unknown, form: FormData): Promise<{ error?: string; token?: string }> {
+  const user = await requireUser();
+  const name = str(form.get("name")).slice(0, 60);
+  const scope = str(form.get("scope")) === "read" ? "read" : "edit";
+  if (!name) return { error: "Ponle un nombre (p. ej. Instinct)" };
+  const db = await getDb();
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(s.apiTokens).where(eq(s.apiTokens.userId, user.id));
+  if (n >= 10) return { error: "Máximo 10 tokens. Revoca alguno." };
+  const { token, hash } = generateToken();
+  await db.insert(s.apiTokens).values({ userId: user.id, name, scope, tokenHash: hash });
+  refresh();
+  return { token };
+}
+
+export async function revokeApiToken(id: number) {
+  const user = await requireUser();
+  const db = await getDb();
+  await db.delete(s.apiTokens).where(and(eq(s.apiTokens.id, id), eq(s.apiTokens.userId, user.id)));
+  refresh();
 }

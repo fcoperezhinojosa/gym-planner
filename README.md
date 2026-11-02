@@ -39,6 +39,29 @@ La app usa Drizzle sobre Postgres estándar, así que vale cualquier Postgres; l
 
 Se puede instalar en el móvil como app ("Añadir a pantalla de inicio").
 
+## Acceso para IAs (API REST + MCP)
+
+Para que Instinct u otra IA consulte qué toca hoy, analice tu entreno y cree rutinas y ejercicios:
+
+1. En la app: **Más → Acceso para IAs → Crear token** (permiso *Leer + crear/editar* o *Solo lectura*). El token `gp_…` se muestra una sola vez; en la base solo se guarda su hash. Se puede revocar cuando quieras.
+2. Conéctala con el token en la cabecera `Authorization: Bearer gp_…`:
+   - **MCP** (servidor remoto, Streamable HTTP): `https://TU-APP.vercel.app/api/mcp`
+   - **REST**: `https://TU-APP.vercel.app/api/v1/…`, descrita en `/api/v1/openapi.json`.
+
+Ambas usan las mismas herramientas (`src/lib/api-tools.ts`):
+
+| Herramienta | REST | Permiso |
+|---|---|---|
+| `get_today` (qué toca hoy + `link` a la rutina del día) | `GET /api/v1/today` | lectura |
+| `get_calendar`, `get_plan`, `get_analytics` | `GET /api/v1/calendar`, `/plan`, `/analytics` | lectura |
+| `search_exercises`, `get_exercise`, `get_meta` | `GET /api/v1/exercises?q=…`, `/exercises/:id`, `/meta` | lectura |
+| `list_routines`, `get_routine` | `GET /api/v1/routines`, `/routines/:id` | lectura |
+| `create_exercise` | `POST /api/v1/exercises` | edición |
+| `create_routine`, `update_routine` | `POST /api/v1/routines`, `PUT /api/v1/routines/:id` | edición |
+| `set_plan`, `set_plan_day` | `PUT /api/v1/plan`, `PUT /api/v1/plan/day` | edición |
+
+El `link` de `get_today` abre la rutina en la app; hay que tener la sesión iniciada en el móvil. Si el dominio no es el que ve la petición, fija `APP_URL`. La API no permite borrar rutinas ni cerrar o borrar entrenos.
+
 ## Sin cobertura en el gimnasio
 
 Un service worker (`public/sw.js`) guarda las pantallas que ya abriste y sus recursos, y la sesión de entreno guarda las series en el móvil (localStorage) hasta que haya red:
@@ -63,6 +86,7 @@ El service worker solo se registra en producción (`npm run build && npm start`)
 | `src/app/(app)/…` | Pantallas: Hoy, Calendario, Plan, Rutinas, Ejercicios, Sesión, Actividades, Analítica, Perfil |
 | `data/exercises.json` | Catálogo de [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (dominio público) |
 | `data/exercises-es.json` | Nombres de los ejercicios en español (id → nombre); se cargan en `name_es` |
+| `src/lib/api-*.ts`, `src/app/api/` | API REST, servidor MCP y tokens para IAs |
 | `src/lib/offline-queue.ts` | Cola local de series y cierre de entreno sin conexión |
 
 Al cambiar el esquema: edita `src/db/schema.ts` y ejecuta `npm run db:generate`.
