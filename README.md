@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gym Planner
 
-## Getting Started
+Planificador de gimnasio inspirado en Gym WP, sin límite de ejercicios por rutina:
 
-First, run the development server:
+- **Catálogo de ~870 ejercicios** con imágenes, músculo y material (mancuernas, máquina, barra, polea…). Puedes añadir los tuyos.
+- **Rutinas** sin límite de ejercicios. Cambias el peso de una serie y se actualiza en las demás que tenían el mismo peso (3×12 kg → 3×16 kg con un cambio; las pirámides no se rompen).
+- **Plan semanal con rotación**: ciclo de 1 a 8 semanas (A/B…) para alternar, por ejemplo, pecho bajo y pecho alto. Cada día puede ser gimnasio, actividad (pádel, correr…) o descanso.
+- **Hoy y calendario**: qué toca hoy y cada día, qué has hecho y qué no. Puedes cambiar un día concreto sin tocar el plan.
+- **Entrenamiento en curso**: pesos prellenados con los de la última vez, marcar series, temporizador de descanso, y al terminar guarda los nuevos pesos en la rutina.
+- **Analítica**: días entrenados frente a lo planificado, minutos, kcal por semana (gimnasio + actividades), series por grupo muscular, récords (1RM estimado) y progresión por ejercicio.
+
+Las kcal son una **estimación** con MET (`kcal = MET × peso × horas`), usando tu peso del perfil.
+
+## Puesta en marcha en local
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre http://localhost:3000 y crea tu cuenta en `/registro`. No hace falta base de datos: en desarrollo se usa Postgres embebido (PGlite) en `./.pglite`, que se crea, migra y carga con el catálogo la primera vez.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm test          # tests de la lógica (rotación, propagación de pesos, kcal…)
+npm run lint
+npm run typecheck
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Despliegue (Vercel + Supabase, ambos con plan gratuito)
 
-## Learn More
+1. Crea un proyecto en Supabase y copia la cadena de conexión del **Transaction pooler** (puerto 6543).
+2. Aplica las migraciones y carga el catálogo:
+   ```bash
+   DATABASE_URL="postgres://…" npm run db:setup
+   ```
+3. Importa el repo en Vercel y añade las variables de `.env.example`: `DATABASE_URL`, `SESSION_SECRET` (`openssl rand -base64 32`) y, si quieres que solo entren tus amigos, `INVITE_CODE`.
 
-To learn more about Next.js, take a look at the following resources:
+Se puede instalar en el móvil como app ("Añadir a pantalla de inicio").
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Estructura
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Ruta | Qué hay |
+|---|---|
+| `src/db/schema.ts` | Modelo de datos (Drizzle). Migraciones en `drizzle/` |
+| `src/lib/schedule.ts` | Qué toca cada día: rotación A/B y excepciones |
+| `src/lib/sets.ts` | Propagación de peso/reps entre series |
+| `src/lib/kcal.ts` | Tabla MET y estimación de kcal |
+| `src/lib/data.ts` | Consultas (capa de acceso a datos) |
+| `src/app/actions.ts` | Server Actions (todas comprueban que los datos son del usuario) |
+| `src/app/(app)/…` | Pantallas: Hoy, Calendario, Plan, Rutinas, Ejercicios, Sesión, Actividades, Analítica, Perfil |
+| `data/exercises.json` | Catálogo de [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (dominio público) |
 
-## Deploy on Vercel
+Al cambiar el esquema: edita `src/db/schema.ts` y ejecuta `npm run db:generate`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Pendiente / ideas
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Traducir al español los nombres de los ejercicios (el campo `name_es` ya existe).
+- Funcionar sin conexión durante el entreno.
+- Exportar a CSV.
+- Supersets y notas por serie.
