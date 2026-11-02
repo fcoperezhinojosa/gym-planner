@@ -27,7 +27,7 @@ export async function listExercisesLite(userId: number): Promise<ExerciseLite[]>
       ownerId: s.exercises.ownerId,
     })
     .from(s.exercises)
-    .orderBy(asc(s.exercises.name));
+    .orderBy(asc(sql`coalesce(${s.exercises.nameEs}, ${s.exercises.name})`));
   return rows
     .filter((r) => r.ownerId === null || r.ownerId === userId)
     .map((r) => ({
@@ -317,7 +317,7 @@ export async function completedSetsInRange(userId: number, from: string, to: str
     .select({
       date: s.workoutSessions.date,
       exerciseId: s.sessionExercises.exerciseId,
-      exerciseName: s.exercises.name,
+      exerciseName: sql<string>`coalesce(${s.exercises.nameEs}, ${s.exercises.name})`,
       muscle: s.exercises.primaryMuscle,
       reps: s.sessionSets.reps,
       weightKg: s.sessionSets.weightKg,

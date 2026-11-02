@@ -6,6 +6,7 @@ import { addExercisesToSession, deleteWorkout, finishWorkout, removeSessionExerc
 import type { ExerciseLite, SessionDetail } from "@/lib/data";
 import { INTENSITIES, estimateKcal, metFor, type Intensity } from "@/lib/kcal";
 import { equipmentLabel, muscleLabel } from "@/lib/labels";
+import { clearFinish, clearSets, pendingFinish, pendingSets, queueFinish, queueSets, type QueuedFinish } from "@/lib/offline-queue";
 import { ExercisePicker } from "./ExercisePicker";
 import { ExerciseThumb } from "./ExerciseThumb";
 import { SetsEditor, type EditableSet } from "./SetsEditor";
@@ -13,6 +14,22 @@ import { Button, Card, cx, input, label } from "./ui";
 import { useDebouncedSave } from "./useDebouncedSave";
 
 type Prev = Record<string, { date: string; sets: { reps: number; weightKg: number }[] }>;
+
+/**
+ * Envía lo que haya quedado en la cola local: primero las series pendientes y,
+ * si se pidió terminar sin conexión, el cierre del entreno.
+ * Lanza si no hay red (la cola se conserva para reintentar).
+ */
+async function syncSession(sessionId: number, exerciseIds: number[]) {
+  for (const id of exerciseIds) {
+    const p = pendingSets(id);
+    if (!p) continue;
+    await saveSessionSets(id, p);
+    if (JSON.stringify(pendingSets(id)) === JSON.stringify(p)) clearSets(id);
+  }
+  const f = pendingFinish(sessionId);
+  if (f) await finishWorkout(sessionId, f);
+}
 
 function fmt(sec: number) {
   const m = Math.floor(sec / 60);
@@ -38,6 +55,28 @@ export function SessionRunner({
   const [now, setNow] = useState(() => Date.now());
   const [restUntil, setRestUntil] = useState<number | null>(null);
   const [doneCount, setDoneCount] = useState(() => session.exercises.reduce((a, e) => a + e.sets.filter((s) => s.completed).length, 0));
+
+  const [queuedFinish, setQueuedFinish] = useState(false);
+  const exerciseIds = session.exercises.map((e) => e.id);
+  const idsKey = exerciseIds.join(",");
+
+  // Al volver la señal (o al abrir con señal) se envía lo pendiente.
+  useEffect(() => {
+    if (finished) {
+      clearFinish(session.id);
+      return;
+    }
+    // localStorage solo existe en el cliente: se lee tras hidratar para no desajustar el HTML.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setQueuedFinish(pendingFinish(session.id) !== null);
+    const run = () => {
+      if (!navigator.onLine) return;
+      syncSession(session.id, idsKey ? idsKey.split(",").map(Number) : []).catch(() => {});
+    };
+    run();
+    window.addEventListener("online", run);
+    return () => window.removeEventListener("online", run);
+  }, [finished, session.id, idsKey]);
 
   const restRef = useRef<number | null>(null);
   useEffect(() => {
@@ -74,6 +113,12 @@ export function SessionRunner({
             <p className="text-xl font-bold tabular">{doneCount}</p>
           </div>
           <Button onClick={() => setFinishing(true)}>Terminar</Button>
+        </Card>
+      )}
+
+      {queuedFinish && !finished && (
+        <Card className="border-accent/50 p-3 text-sm">
+          Entreno terminado y guardado en el móvil. Se enviará solo cuando vuelva la señal.
         </Card>
       )}
 
@@ -145,6 +190,11 @@ export function SessionRunner({
       {finishing && (
         <FinishDialog
           sessionId={session.id}
+          exerciseIds={exerciseIds}
+          onQueued={() => {
+            setQueuedFinish(true);
+            setFinishing(false);
+          }}
           hasRoutine={session.routineId !== null}
           defaultMinutes={Math.max(1, Math.round(elapsed / 60))}
           bodyWeightKg={bodyWeightKg}
@@ -171,7 +221,18 @@ function SessionExerciseCard({
   onRemove: () => void;
 }) {
   const [sets, setSets] = useState<EditableSet[]>(ex.sets);
-  const { schedule, status } = useDebouncedSave((v: EditableSet[]) => saveSessionSets(ex.id, v), 400);
+  const { schedule, status } = useDebouncedSave(async (v: EditableSet[]) => {
+    await saveSessionSets(ex.id, v);
+    // Solo se borra la copia local si no ha cambiado mientras se enviaba.
+    if (JSON.stringify(pendingSets(ex.id)) === JSON.stringify(v)) clearSets(ex.id);
+  }, 400);
+
+  // Si quedaron series sin enviar (sin cobertura), se recuperan de la copia local.
+  useEffect(() => {
+    const p = pendingSets(ex.id);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (p) setSets(p);
+  }, [ex.id]);
   const allDone = sets.length > 0 && sets.every((s) => s.completed);
 
   return (
@@ -186,7 +247,7 @@ function SessionExerciseCard({
             {muscleLabel(ex.primaryMuscle)} · {equipmentLabel(ex.equipment)}
             {previous && <> · última vez {previous.date.split("-").reverse().slice(0, 2).join("/")}</>}
           </p>
-          {status === "error" && <p className="text-xs text-danger">⚠ No se ha guardado, revisa la conexión</p>}
+          {status === "error" && <p className="text-xs text-danger">Sin conexión: guardado en el móvil, se enviará al volver la señal</p>}
         </div>
         <button onClick={onRemove} className="rounded-lg px-2 py-1 text-muted hover:bg-danger/10 hover:text-danger" aria-label="Quitar ejercicio">✕</button>
       </div>
@@ -200,6 +261,7 @@ function SessionExerciseCard({
           const after = next.filter((s) => s.completed).length;
           if (after < before) onUncomplete();
           setSets(next);
+          queueSets(ex.id, next);
           schedule(next);
         }}
       />
@@ -209,12 +271,16 @@ function SessionExerciseCard({
 
 function FinishDialog({
   sessionId,
+  exerciseIds,
+  onQueued,
   hasRoutine,
   defaultMinutes,
   bodyWeightKg,
   onClose,
 }: {
   sessionId: number;
+  exerciseIds: number[];
+  onQueued: () => void;
   hasRoutine: boolean;
   defaultMinutes: number;
   bodyWeightKg: number;
@@ -265,7 +331,18 @@ function FinishDialog({
           <Button
             className="flex-[2]"
             disabled={pending}
-            onClick={() => start(() => finishWorkout(sessionId, { durationMin: minutes, intensity, notes, updateRoutine }))}
+            onClick={() => {
+              const opts: QueuedFinish = { durationMin: minutes, intensity, notes, updateRoutine };
+              queueFinish(sessionId, opts);
+              if (!navigator.onLine) return onQueued();
+              start(async () => {
+                try {
+                  await syncSession(sessionId, exerciseIds);
+                } catch {
+                  onQueued();
+                }
+              });
+            }}
           >
             Guardar y terminar
           </Button>

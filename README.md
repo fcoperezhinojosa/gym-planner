@@ -26,16 +26,29 @@ npm run lint
 npm run typecheck
 ```
 
-## Despliegue (Vercel + Supabase, ambos con plan gratuito)
+## Despliegue (Vercel + Prisma Postgres)
 
-1. Crea un proyecto en Supabase y copia la cadena de conexión del **Transaction pooler** (puerto 6543).
-2. Aplica las migraciones y carga el catálogo:
+La app usa Drizzle sobre Postgres estándar, así que vale cualquier Postgres; la opción recomendada es **Prisma Postgres** (Vercel → Storage / Marketplace → Prisma Postgres, plan gratuito).
+
+1. Crea la base de datos Prisma Postgres y copia su cadena de conexión `postgres://…` (variable `DATABASE_URL`).
+2. Aplica las migraciones y carga el catálogo (ya con los nombres en español):
    ```bash
    DATABASE_URL="postgres://…" npm run db:setup
    ```
 3. Importa el repo en Vercel y añade las variables de `.env.example`: `DATABASE_URL`, `SESSION_SECRET` (`openssl rand -base64 32`) y, si quieres que solo entren tus amigos, `INVITE_CODE`.
 
 Se puede instalar en el móvil como app ("Añadir a pantalla de inicio").
+
+## Sin cobertura en el gimnasio
+
+Un service worker (`public/sw.js`) guarda las pantallas que ya abriste y sus recursos, y la sesión de entreno guarda las series en el móvil (localStorage) hasta que haya red:
+
+- **Antes de entrar**: con señal, inicia el entreno y deja abierta la pantalla de la sesión (así queda en caché).
+- **Durante**: marcar series, cambiar pesos y el temporizador de descanso funcionan sin red. Los cambios se envían solos al volver la señal.
+- **Al terminar sin red**: el cierre queda guardado y se envía automáticamente al recuperar conexión (abre la app con señal).
+- No funciona sin red: iniciar un entreno nuevo, añadir/quitar ejercicios de la sesión y el resto de pantallas que no hayas abierto antes.
+
+El service worker solo se registra en producción (`npm run build && npm start`).
 
 ## Estructura
 
@@ -49,12 +62,13 @@ Se puede instalar en el móvil como app ("Añadir a pantalla de inicio").
 | `src/app/actions.ts` | Server Actions (todas comprueban que los datos son del usuario) |
 | `src/app/(app)/…` | Pantallas: Hoy, Calendario, Plan, Rutinas, Ejercicios, Sesión, Actividades, Analítica, Perfil |
 | `data/exercises.json` | Catálogo de [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (dominio público) |
+| `data/exercises-es.json` | Nombres de los ejercicios en español (id → nombre); se cargan en `name_es` |
+| `src/lib/offline-queue.ts` | Cola local de series y cierre de entreno sin conexión |
 
 Al cambiar el esquema: edita `src/db/schema.ts` y ejecuta `npm run db:generate`.
 
 ## Pendiente / ideas
 
-- Traducir al español los nombres de los ejercicios (el campo `name_es` ya existe).
-- Funcionar sin conexión durante el entreno.
+- Iniciar entrenos y añadir ejercicios sin conexión.
 - Exportar a CSV.
 - Supersets y notas por serie.
