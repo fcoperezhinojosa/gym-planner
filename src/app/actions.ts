@@ -2,14 +2,18 @@
 
 import bcrypt from "bcryptjs";
 import { and, asc, eq, inArray, max, sql } from "drizzle-orm";
-import { refresh } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb, schema as s } from "@/db";
 import { endSession, requireUser, startSession } from "@/lib/auth";
 import { isValidISODate, todayISO } from "@/lib/dates";
 import { ACTIVITY_TYPES, estimateKcal, isIntensity, metFor, type Intensity } from "@/lib/kcal";
 import { generateToken } from "@/lib/api-tokens";
-import { lastSetsByExercise } from "@/lib/data";
+import { lastSetsByExercise, userCacheTag } from "@/lib/data";
+
+function invalidateUser(userId: number) {
+  updateTag(userCacheTag(userId));
+}
 
 export type FormState = { error?: string; ok?: boolean } | undefined;
 
@@ -63,6 +67,8 @@ export async function updateProfile(_: FormState, form: FormData): Promise<FormS
   const bodyWeightKg = clamp(num(form.get("weight"), user.bodyWeightKg), 30, 250);
   const db = await getDb();
   await db.update(s.users).set({ name, bodyWeightKg }).where(eq(s.users.id, user.id));
+  updateTag(`user-profile:${user.id}`);
+  invalidateUser(user.id);
   refresh();
   return { ok: true };
 }
@@ -126,6 +132,7 @@ export async function createRoutine(form: FormData) {
   const color = /^#[0-9a-f]{6}$/i.test(str(form.get("color"))) ? str(form.get("color")) : "#f97316";
   const db = await getDb();
   const [r] = await db.insert(s.routines).values({ userId: user.id, name, color }).returning({ id: s.routines.id });
+  invalidateUser(user.id);
   redirect(`/rutinas/${r.id}`);
 }
 
@@ -138,6 +145,7 @@ export async function updateRoutine(routineId: number, data: { name?: string; co
   if (data.color && /^#[0-9a-f]{6}$/i.test(data.color)) patch.color = data.color;
   if (data.notes !== undefined) patch.notes = data.notes.slice(0, 2000);
   if (Object.keys(patch).length) await db.update(s.routines).set(patch).where(eq(s.routines.id, routineId));
+  invalidateUser(user.id);
   refresh();
 }
 
@@ -146,6 +154,7 @@ export async function deleteRoutine(routineId: number) {
   await ownRoutine(user.id, routineId);
   const db = await getDb();
   await db.delete(s.routines).where(eq(s.routines.id, routineId));
+  invalidateUser(user.id);
   redirect("/rutinas");
 }
 
@@ -168,6 +177,7 @@ export async function duplicateRoutine(routineId: number) {
     if (sets.length)
       await db.insert(s.routineSets).values(sets.map((x) => ({ routineExerciseId: ne.id, position: x.position, reps: x.reps, weightKg: x.weightKg, type: x.type })));
   }
+  invalidateUser(user.id);
   redirect(`/rutinas/${copy.id}`);
 }
 
@@ -184,6 +194,7 @@ export async function addExercisesToRoutine(routineId: number, exerciseIds: stri
     const sets = prev?.length ? prev.map((x) => ({ reps: x.reps, weightKg: x.weightKg })) : [0, 1, 2].map(() => ({ reps: 10, weightKg: 0 }));
     await db.insert(s.routineSets).values(sets.map((x, i) => ({ routineExerciseId: re.id, position: i, reps: x.reps, weightKg: x.weightKg })));
   }
+  invalidateUser(user.id);
   refresh();
 }
 
@@ -192,6 +203,7 @@ export async function removeRoutineExercise(reId: number) {
   await ownRoutineExercise(user.id, reId);
   const db = await getDb();
   await db.delete(s.routineExercises).where(eq(s.routineExercises.id, reId));
+  invalidateUser(user.id);
   refresh();
 }
 
@@ -205,6 +217,7 @@ export async function moveRoutineExercise(reId: number, dir: -1 | 1) {
   if (i < 0 || j < 0 || j >= list.length) return;
   [list[i], list[j]] = [list[j], list[i]];
   for (let k = 0; k < list.length; k++) await db.update(s.routineExercises).set({ position: k }).where(eq(s.routineExercises.id, list[k].id));
+  invalidateUser(user.id);
   refresh();
 }
 
@@ -217,6 +230,7 @@ export async function saveRoutineSets(reId: number, sets: SetInput[], restSecond
   if (rows.length) await db.insert(s.routineSets).values(rows);
   if (restSeconds !== undefined)
     await db.update(s.routineExercises).set({ restSeconds: clamp(Math.round(restSeconds), 0, 900) }).where(eq(s.routineExercises.id, reId));
+  invalidateUser(user.id);
 }
 
 /* ───────────── Plan ───────────── */
@@ -234,6 +248,7 @@ export async function savePlan(form: FormData) {
   } else {
     await db.insert(s.plans).values({ userId: user.id, name, startDate, cycleWeeks });
   }
+  invalidateUser(user.id);
   refresh();
 }
 
@@ -265,6 +280,7 @@ export async function setPlanDay(weekIndex: number, weekday: number, slot: SlotI
     .insert(s.planDays)
     .values({ planId: plan.id, weekIndex, weekday, ...v })
     .onConflictDoUpdate({ target: [s.planDays.planId, s.planDays.weekIndex, s.planDays.weekday], set: v });
+  invalidateUser(user.id);
   refresh();
 }
 
@@ -281,6 +297,7 @@ export async function setOverride(date: string, slot: SlotInput | null) {
       .values({ userId: user.id, date, ...v })
       .onConflictDoUpdate({ target: [s.calendarOverrides.userId, s.calendarOverrides.date], set: v });
   }
+  invalidateUser(user.id);
   refresh();
 }
 
@@ -322,6 +339,7 @@ export async function startWorkout(routineId: number | null, date?: string) {
     });
     if (rows.length) await db.insert(s.sessionSets).values(rows);
   }
+  invalidateUser(user.id);
   redirect(`/sesion/${session.id}`);
 }
 
@@ -338,6 +356,7 @@ export async function addExercisesToSession(sessionId: number, exerciseIds: stri
     const sets = prev?.length ? prev : [0, 1, 2].map(() => ({ reps: 10, weightKg: 0 }));
     await db.insert(s.sessionSets).values(sets.map((x, i) => ({ sessionExerciseId: se.id, position: i, reps: x.reps, weightKg: x.weightKg })));
   }
+  invalidateUser(user.id);
   refresh();
 }
 
@@ -346,6 +365,7 @@ export async function removeSessionExercise(seId: number) {
   await ownSessionExercise(user.id, seId);
   const db = await getDb();
   await db.delete(s.sessionExercises).where(eq(s.sessionExercises.id, seId));
+  invalidateUser(user.id);
   refresh();
 }
 
@@ -356,6 +376,7 @@ export async function saveSessionSets(seId: number, sets: SetInput[]) {
   await db.delete(s.sessionSets).where(eq(s.sessionSets.sessionExerciseId, seId));
   const rows = cleanSets(sets).map((x) => ({ ...x, sessionExerciseId: seId }));
   if (rows.length) await db.insert(s.sessionSets).values(rows);
+  invalidateUser(user.id);
 }
 
 export async function finishWorkout(sessionId: number, opts: { durationMin: number; intensity: Intensity; notes?: string; updateRoutine?: boolean }) {
@@ -383,6 +404,7 @@ export async function finishWorkout(sessionId: number, opts: { durationMin: numb
         await db.insert(s.routineSets).values(sets.map((x, i) => ({ routineExerciseId: re.id, position: i, reps: x.reps, weightKg: x.weightKg, type: x.type })));
     }
   }
+  invalidateUser(user.id);
   redirect(`/sesion/${sessionId}`);
 }
 
@@ -391,6 +413,7 @@ export async function deleteWorkout(sessionId: number) {
   await ownSession(user.id, sessionId);
   const db = await getDb();
   await db.delete(s.workoutSessions).where(eq(s.workoutSessions.id, sessionId));
+  invalidateUser(user.id);
   redirect("/");
 }
 
@@ -409,6 +432,7 @@ export async function logActivity(_: FormState, form: FormData): Promise<FormSta
   const kcal = estimateKcal(metFor(type, intensity), user.bodyWeightKg, durationMin);
   const db = await getDb();
   await db.insert(s.activities).values({ userId: user.id, type, date, durationMin, intensity, kcal, notes: str(form.get("notes")).slice(0, 500) || null });
+  invalidateUser(user.id);
   refresh();
   return { ok: true };
 }
@@ -417,6 +441,7 @@ export async function deleteActivity(id: number) {
   const user = await requireUser();
   const db = await getDb();
   await db.delete(s.activities).where(and(eq(s.activities.id, id), eq(s.activities.userId, user.id)));
+  invalidateUser(user.id);
   refresh();
 }
 
@@ -434,6 +459,7 @@ export async function createCustomExercise(_: FormState, form: FormData): Promis
   const db = await getDb();
   const id = `u${user.id}_${name.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "_").slice(0, 40)}_${Date.now().toString(36)}`;
   await db.insert(s.exercises).values({ id, name, primaryMuscle, equipment, ownerId: user.id, images: image ? [image] : [] });
+  invalidateUser(user.id);
   redirect(`/ejercicios/${encodeURIComponent(id)}`);
 }
 
