@@ -37,7 +37,7 @@ export default async function ExercisePage({ params }: PageProps<"/ejercicios/[i
       <Link href="/ejercicios" className="inline-block text-sm text-muted hover:text-fg">← Ejercicios</Link>
       <PageHeader title={ex.nameEs ?? ex.name} subtitle={`${muscleLabel(ex.primaryMuscle)} · ${equipmentLabel(ex.equipment)}`} />
       {ex.images.length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {ex.images.slice(0, 2).map((img) => (
             <img key={img} src={exerciseImage(img)!} alt={ex.name} className="aspect-[4/3] w-full rounded-2xl bg-white object-cover" />
           ))}

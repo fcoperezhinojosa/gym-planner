@@ -46,7 +46,7 @@ export default async function ExercisesPage({ searchParams }: PageProps<"/ejerci
           <li key={e.id}>
             <Link href={`/ejercicios/${encodeURIComponent(e.id)}`}>
               <Card className="flex items-center gap-3 p-2 hover:border-accent">
-                <ExerciseThumb image={e.image} muscle={e.primaryMuscle} className="h-16 w-16" />
+                <ExerciseThumb image={e.image} muscle={e.primaryMuscle} className="h-20 w-20" />
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium">{e.name}</span>
                   <span className="block text-xs text-muted">{muscleLabel(e.primaryMuscle)} · {equipmentLabel(e.equipment)}</span>
