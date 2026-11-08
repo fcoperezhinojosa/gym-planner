@@ -1,79 +1,163 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import Link, { useLinkStatus } from "next/link";
+import { useState, useTransition } from "react";
 import { startWorkout } from "@/app/actions";
-import { ActivityForm } from "@/components/ActivityForm";
 import { dayEmoji, dayTitle, slotColor } from "@/components/DayBadge";
 import { DayOverride } from "@/components/DayOverride";
 import type { RoutineOption } from "@/components/SlotEditor";
-import { Button, Card, Pill, cx } from "@/components/ui";
+import { Button, Card, PageHeader, Pill, cx } from "@/components/ui";
 import type { CalendarDay } from "@/lib/data";
-import { isValidISODate, isoWeekday } from "@/lib/dates";
+import { addMonths, isoWeekday, startOfMonth } from "@/lib/dates";
 import { activityEmoji, activityLabel } from "@/lib/kcal";
-import { WEEKDAYS, WEEKDAYS_SHORT } from "@/lib/labels";
+import { MONTHS, WEEKDAYS, WEEKDAYS_SHORT } from "@/lib/labels";
 import { weekLetter } from "@/lib/schedule";
 import { dayDone } from "@/lib/week";
 
-/**
- * Rejilla del mes + detalle del día. Seleccionar un día es 100% cliente:
- * ya tenemos los datos de todo el mes, así que solo se actualiza la URL
- * (history.replaceState, que Next sincroniza con useSearchParams) sin ir al servidor.
- */
-export function CalendarView({ days, month, today, routines, bodyWeightKg }: { days: CalendarDay[]; month: string; today: string; routines: RoutineOption[]; bodyWeightKg: number }) {
-  const d = useSearchParams().get("d");
-  const selected = isValidISODate(d) ? d : today;
-  const sel = days.find((x) => x.date === selected) ?? null;
-  const monthPrefix = month.slice(0, 7);
-  // El formulario de actividad se abre para un día concreto: al cambiar de día se cierra solo.
-  const [activityFormDate, setActivityFormDate] = useState<string | null>(null);
-  const showActivityForm = activityFormDate === selected;
+function MonthLinkContent({ children, onPendingChange }: { children: React.ReactNode; onPendingChange: (pending: boolean) => void }) {
+  const { pending } = useLinkStatus();
+  // Sync link pending state with parent calendar view for skeleton overlay
+  return (
+    <span
+      ref={() => {
+        onPendingChange(pending);
+      }}
+      className={cx("inline-flex items-center gap-1 transition-opacity", pending && "opacity-50")}
+    >
+      {children}
+    </span>
+  );
+}
 
-  function select(date: string) {
-    window.history.replaceState(null, "", `/calendario?m=${month}&d=${date}`);
+export function CalendarView({
+  month,
+  today,
+  initialSelected,
+  days,
+  routineOptions,
+  summary,
+}: {
+  month: string;
+  today: string;
+  initialSelected: string;
+  days: CalendarDay[];
+  routineOptions: RoutineOption[];
+  summary: { done: number; minutes: number; kcal: number };
+}) {
+  const [selected, setSelected] = useState(initialSelected);
+  const [monthPending, setMonthPending] = useState(false);
+  const [startingWorkout, startWorkoutTransition] = useTransition();
+
+  const [y, m] = month.split("-").map(Number);
+  const sel = days.find((d) => d.date === selected) ?? days.find((d) => d.date === month) ?? days[0] ?? null;
+  const isCurrentMonth = month === startOfMonth(today);
+
+  function selectDay(date: string) {
+    setSelected(date);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `/calendario?m=${month}&d=${date}`);
+    }
   }
 
   return (
-    <>
-      <Card className="p-2">
+    <div className="space-y-4">
+      <PageHeader
+        title={`${MONTHS[m - 1]} ${y}`}
+        subtitle={`${summary.done} días entrenados · ${summary.minutes} min · ${summary.kcal.toLocaleString("es-ES")} kcal`}
+        action={
+          <div className="flex items-center gap-1">
+            {monthPending && (
+              <span
+                className="mr-1 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted border-t-accent"
+                aria-label="Cargando mes"
+              />
+            )}
+            <Link
+              className="rounded-lg px-3 py-2 text-sm hover:bg-card-2"
+              href={`/calendario?m=${addMonths(month, -1)}`}
+              prefetch={true}
+              aria-label="Mes anterior"
+            >
+              <MonthLinkContent onPendingChange={setMonthPending}>←</MonthLinkContent>
+            </Link>
+            {isCurrentMonth ? (
+              <button
+                type="button"
+                onClick={() => selectDay(today)}
+                className="rounded-lg px-3 py-2 text-sm hover:bg-card-2"
+              >
+                Hoy
+              </button>
+            ) : (
+              <Link className="rounded-lg px-3 py-2 text-sm hover:bg-card-2" href="/calendario" prefetch={true}>
+                <MonthLinkContent onPendingChange={setMonthPending}>Hoy</MonthLinkContent>
+              </Link>
+            )}
+            <Link
+              className="rounded-lg px-3 py-2 text-sm hover:bg-card-2"
+              href={`/calendario?m=${addMonths(month, 1)}`}
+              prefetch={true}
+              aria-label="Mes siguiente"
+            >
+              <MonthLinkContent onPendingChange={setMonthPending}>→</MonthLinkContent>
+            </Link>
+          </div>
+        }
+      />
+
+      <Card className={cx("p-2 transition-opacity", monthPending && "pointer-events-none animate-pulse opacity-60")}>
         <div className="grid grid-cols-7 pb-1 text-center text-[11px] font-medium text-muted">
-          {WEEKDAYS_SHORT.map((w) => <span key={w}>{w}</span>)}
+          {WEEKDAYS_SHORT.map((w) => (
+            <span key={w}>{w}</span>
+          ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
-          {days.map((day) => {
-            const out = !day.date.startsWith(monthPrefix);
-            const done = dayDone(day);
-            const missed = !done && day.date < today && day.planned.kind !== "rest";
+          {days.map((d) => {
+            const out = !d.date.startsWith(month.slice(0, 7));
+            const done = dayDone(d);
+            const missed = !done && d.date < today && d.planned.kind !== "rest";
+            const isSelected = sel?.date === d.date;
             return (
               <button
-                key={day.date}
+                key={d.date}
                 type="button"
-                onClick={() => select(day.date)}
-                aria-pressed={day.date === selected}
-                aria-label={`${WEEKDAYS[isoWeekday(day.date) - 1]} ${Number(day.date.slice(8))}/${Number(day.date.slice(5, 7))}`}
+                onClick={() => selectDay(d.date)}
+                aria-pressed={isSelected}
+                aria-label={`${d.date}: ${dayTitle(d.planned)}`}
                 className={cx(
-                  "relative flex aspect-square flex-col items-center justify-center rounded-lg text-sm",
+                  "relative flex aspect-square cursor-pointer flex-col items-center justify-center rounded-lg text-sm transition-colors",
                   out && "opacity-35",
-                  day.date === selected ? "bg-accent-soft ring-2 ring-accent" : "hover:bg-card-2",
+                  isSelected ? "bg-accent-soft ring-2 ring-accent" : "hover:bg-card-2",
                 )}
               >
-                <span className={cx("text-xs tabular", day.date === today && "font-bold text-accent")}>{Number(day.date.slice(8))}</span>
-                <span className="text-base leading-none">{day.planned.kind === "rest" && !done ? "" : dayEmoji(day.planned)}</span>
-                <span className="absolute bottom-1 h-1 w-4 rounded-full" style={{ background: done ? "var(--good)" : missed ? "var(--danger)" : day.planned.kind !== "rest" ? slotColor(day.planned) : "transparent", opacity: done || missed ? 1 : 0.5 }} />
+                <span className={cx("text-xs tabular", d.date === today && "font-bold text-accent")}>{Number(d.date.slice(8))}</span>
+                <span className="text-base leading-none">{d.planned.kind === "rest" && !done ? "" : dayEmoji(d.planned)}</span>
+                <span
+                  className="absolute bottom-1 h-1 w-4 rounded-full"
+                  style={{
+                    background: done ? "var(--good)" : missed ? "var(--danger)" : d.planned.kind !== "rest" ? slotColor(d.planned) : "transparent",
+                    opacity: done || missed ? 1 : 0.5,
+                  }}
+                />
               </button>
             );
           })}
         </div>
         <div className="flex flex-wrap gap-3 px-2 pt-2 text-[11px] text-muted">
-          <span className="flex items-center gap-1"><span className="h-1 w-4 rounded-full bg-good" /> Hecho</span>
-          <span className="flex items-center gap-1"><span className="h-1 w-4 rounded-full bg-danger" /> No hecho</span>
-          <span className="flex items-center gap-1"><span className="h-1 w-4 rounded-full bg-accent opacity-50" /> Planificado</span>
+          <span className="flex items-center gap-1">
+            <span className="h-1 w-4 rounded-full bg-good" /> Hecho
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-1 w-4 rounded-full bg-danger" /> No hecho
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-1 w-4 rounded-full bg-accent opacity-50" /> Planificado
+          </span>
         </div>
       </Card>
 
       {sel && (
-        <Card className="space-y-3 p-4">
+        <Card className={cx("space-y-3 p-4 transition-opacity", monthPending && "animate-pulse opacity-60")}>
           <div className="flex items-start gap-3">
             <span className="text-3xl">{dayEmoji(sel.planned)}</span>
             <div className="flex-1">
@@ -98,26 +182,32 @@ export function CalendarView({ days, month, today, routines, bodyWeightKg }: { d
           ))}
           <div className="flex flex-wrap items-center gap-2">
             {sel.date <= today && (
-              <form action={startWorkout.bind(null, sel.planned.kind === "workout" ? sel.planned.routineId : null, sel.date)}>
-                <Button size="sm" variant="secondary">
-                  {sel.date === today ? "Empezar" : "Registrar"} {sel.planned.kind === "workout" && sel.planned.routineName ? sel.planned.routineName : "entreno libre"}
-                </Button>
-              </form>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={startingWorkout}
+                onClick={() =>
+                  startWorkoutTransition(async () => {
+                    await startWorkout(sel.planned.kind === "workout" ? sel.planned.routineId : null, sel.date);
+                  })
+                }
+              >
+                {startingWorkout
+                  ? "Abriendo..."
+                  : `${sel.date === today ? "Empezar" : "Registrar"} ${
+                      sel.planned.kind === "workout" && sel.planned.routineName ? sel.planned.routineName : "entreno libre"
+                    }`}
+              </Button>
             )}
             {sel.date <= today && (
-              <button type="button" onClick={() => setActivityFormDate(showActivityForm ? null : selected)} className="text-sm text-accent">
-                {showActivityForm ? "Cancelar" : "+ Actividad"}
-              </button>
+              <Link href="/actividades" className="text-sm text-accent">
+                + Actividad
+              </Link>
             )}
-            <DayOverride key={sel.date} date={sel.date} current={sel.planned} isOverride={sel.planned.source === "override"} routines={routines} />
+            <DayOverride key={sel.date} date={sel.date} current={sel.planned} isOverride={sel.planned.source === "override"} routines={routineOptions} />
           </div>
-          {showActivityForm && (
-            <div className="border-t border-line pt-3">
-              <ActivityForm today={sel.date} bodyWeightKg={bodyWeightKg} defaultType="other" />
-            </div>
-          )}
         </Card>
       )}
-    </>
+    </div>
   );
 }
