@@ -8,7 +8,7 @@ import { sql } from "drizzle-orm";
 import { ACTIVITY_TYPES, activityLabel } from "./kcal";
 import { EQUIPMENT, MUSCLES, MUSCLE_GROUPS, muscleGroup, muscleLabel, equipmentLabel, type MuscleGroup } from "./labels";
 import { normalize } from "./text";
-import { weekLetter } from "./schedule";
+import { normalizeSlot, weekLetter, type DayKind } from "./schedule";
 import { epley1RM } from "./stats";
 import { summarizeDays } from "./week";
 
@@ -220,12 +220,15 @@ export async function getDayApi(userId: number, date: string | undefined, baseUr
     date: day,
     isToday: day === todayISO(),
     kind: p.kind,
-    summary:
+    summary: [
       p.kind === "workout" ? `Gimnasio: ${p.routineName ?? "rutina"}` : p.kind === "activity" ? `Actividad: ${activityLabel(p.activityType)}` : "Descanso",
+      ...p.extraActivities.map((a) => `Actividad: ${activityLabel(a)}`),
+    ].join(" + "),
     source: p.source,
     week: p.weekIndex !== null && p.source !== "none" ? weekLetter(p.weekIndex) : null,
     label: p.label,
     activityType: p.activityType,
+    extraActivities: p.extraActivities,
     routine,
     // Enlace listo para enviar: abre la app en la rutina del día (requiere haber iniciado sesión en el móvil).
     link: routine ? routine.url : `${baseUrl}/`,
@@ -249,6 +252,7 @@ export async function getCalendarApi(userId: number, from: string | undefined, d
     routineName: d.planned.routineName,
     routineUrl: d.planned.routineId ? `${baseUrl}/rutinas/${d.planned.routineId}` : null,
     activity: d.planned.kind === "activity" ? activityLabel(d.planned.activityType) : null,
+    extraActivities: d.planned.extraActivities.map(activityLabel),
     done: d.sessions.some((x) => x.finished) || d.activities.length > 0,
     sessions: d.sessions.length,
     activities: d.activities.length,
@@ -274,6 +278,7 @@ export async function getPlanApi(userId: number) {
           routineId: d.routineId,
           routineName: name(d.routineId),
           activity: d.activityType ? activityLabel(d.activityType) : null,
+          extraActivities: d.extraActivities.map(activityLabel),
           label: d.label,
         })),
     },
@@ -391,7 +396,18 @@ export async function setPlanDayApi(userId: number, input: Record<string, unknow
   }
   const activityType = kind === "activity" ? String(input.activityType ?? "") : null;
   if (kind === "activity" && !ACTIVITY_TYPES[activityType!]) throw new ApiError(400, `activityType no válido. Valores: ${Object.keys(ACTIVITY_TYPES).filter((k) => k !== "gym").join(", ")}`);
-  const v = { kind, routineId, activityType, label: input.label ? String(input.label).trim().slice(0, 60) : null };
+  const extrasIn = input.extraActivities === undefined || input.extraActivities === null ? [] : input.extraActivities;
+  if (!Array.isArray(extrasIn)) throw new ApiError(400, "extraActivities debe ser una lista");
+  const extras = extrasIn.map(String);
+  const bad = extras.find((a) => a === "gym" || !ACTIVITY_TYPES[a]);
+  if (bad !== undefined) throw new ApiError(400, `extraActivities: "${bad}" no válido. Valores: ${Object.keys(ACTIVITY_TYPES).filter((k) => k !== "gym").join(", ")}`);
+  const v = normalizeSlot({
+    kind: kind as DayKind,
+    routineId,
+    activityType,
+    extraActivities: extras,
+    label: input.label ? String(input.label).trim().slice(0, 60) : null,
+  });
   await db
     .insert(s.planDays)
     .values({ planId: plan.id, weekIndex, weekday, ...v })

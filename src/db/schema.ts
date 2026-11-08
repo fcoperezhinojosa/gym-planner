@@ -100,6 +100,8 @@ export const planDays = pgTable(
     kind: text("kind").notNull(),
     routineId: integer("routine_id").references(() => routines.id, { onDelete: "set null" }),
     activityType: text("activity_type"),
+    /** Actividades adicionales planificadas ese día (además de la principal). */
+    extraActivities: text("extra_activities").array().notNull().default([]),
     label: text("label"),
   },
   (t) => [uniqueIndex("plan_days_cell_idx").on(t.planId, t.weekIndex, t.weekday)],
@@ -114,6 +116,7 @@ export const calendarOverrides = pgTable(
     kind: text("kind").notNull(),
     routineId: integer("routine_id").references(() => routines.id, { onDelete: "set null" }),
     activityType: text("activity_type"),
+    extraActivities: text("extra_activities").array().notNull().default([]),
     label: text("label"),
   },
   (t) => [uniqueIndex("calendar_overrides_user_date_idx").on(t.userId, t.date)],
