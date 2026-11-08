@@ -1,8 +1,9 @@
 "use client";
 
 import Link, { useLinkStatus } from "next/link";
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { startWorkout } from "@/app/actions";
+import { ActivityForm } from "@/components/ActivityForm";
 import { dayEmoji, dayTitle, slotColor } from "@/components/DayBadge";
 import { DayOverride } from "@/components/DayOverride";
 import type { RoutineOption } from "@/components/SlotEditor";
@@ -14,19 +15,23 @@ import { MONTHS, WEEKDAYS, WEEKDAYS_SHORT } from "@/lib/labels";
 import { weekLetter } from "@/lib/schedule";
 import { dayDone } from "@/lib/week";
 
-function MonthLinkContent({ children, onPendingChange }: { children: React.ReactNode; onPendingChange: (pending: boolean) => void }) {
+type NavKey = "prev" | "today" | "next";
+
+function MonthLinkLabel({
+  id,
+  children,
+  onPendingChange,
+}: {
+  id: NavKey;
+  children: React.ReactNode;
+  onPendingChange: (id: NavKey, pending: boolean) => void;
+}) {
   const { pending } = useLinkStatus();
-  // Sync link pending state with parent calendar view for skeleton overlay
-  return (
-    <span
-      ref={() => {
-        onPendingChange(pending);
-      }}
-      className={cx("inline-flex items-center gap-1 transition-opacity", pending && "opacity-50")}
-    >
-      {children}
-    </span>
-  );
+  useEffect(() => {
+    onPendingChange(id, pending);
+  }, [id, pending, onPendingChange]);
+
+  return <span className={cx("inline-flex items-center gap-1 transition-opacity", pending && "opacity-50")}>{children}</span>;
 }
 
 export function CalendarView({
@@ -36,6 +41,7 @@ export function CalendarView({
   days,
   routineOptions,
   summary,
+  bodyWeightKg,
 }: {
   month: string;
   today: string;
@@ -43,14 +49,23 @@ export function CalendarView({
   days: CalendarDay[];
   routineOptions: RoutineOption[];
   summary: { done: number; minutes: number; kcal: number };
+  bodyWeightKg: number;
 }) {
   const [selected, setSelected] = useState(initialSelected);
-  const [monthPending, setMonthPending] = useState(false);
+  // El formulario de actividad se abre para un día concreto: al cambiar de día se cierra solo.
+  const [activityFormDate, setActivityFormDate] = useState<string | null>(null);
+  const [pendingNav, setPendingNav] = useState<Record<NavKey, boolean>>({ prev: false, today: false, next: false });
   const [startingWorkout, startWorkoutTransition] = useTransition();
 
+  const handlePendingChange = useCallback((id: NavKey, pending: boolean) => {
+    setPendingNav((prev) => (prev[id] === pending ? prev : { ...prev, [id]: pending }));
+  }, []);
+
+  const monthPending = pendingNav.prev || pendingNav.today || pendingNav.next;
   const [y, m] = month.split("-").map(Number);
   const sel = days.find((d) => d.date === selected) ?? days.find((d) => d.date === month) ?? days[0] ?? null;
   const isCurrentMonth = month === startOfMonth(today);
+  const showActivityForm = sel !== null && activityFormDate === sel.date;
 
   function selectDay(date: string) {
     setSelected(date);
@@ -78,7 +93,9 @@ export function CalendarView({
               prefetch={true}
               aria-label="Mes anterior"
             >
-              <MonthLinkContent onPendingChange={setMonthPending}>←</MonthLinkContent>
+              <MonthLinkLabel id="prev" onPendingChange={handlePendingChange}>
+                ←
+              </MonthLinkLabel>
             </Link>
             {isCurrentMonth ? (
               <button
@@ -90,7 +107,9 @@ export function CalendarView({
               </button>
             ) : (
               <Link className="rounded-lg px-3 py-2 text-sm hover:bg-card-2" href="/calendario" prefetch={true}>
-                <MonthLinkContent onPendingChange={setMonthPending}>Hoy</MonthLinkContent>
+                <MonthLinkLabel id="today" onPendingChange={handlePendingChange}>
+                  Hoy
+                </MonthLinkLabel>
               </Link>
             )}
             <Link
@@ -99,7 +118,9 @@ export function CalendarView({
               prefetch={true}
               aria-label="Mes siguiente"
             >
-              <MonthLinkContent onPendingChange={setMonthPending}>→</MonthLinkContent>
+              <MonthLinkLabel id="next" onPendingChange={handlePendingChange}>
+                →
+              </MonthLinkLabel>
             </Link>
           </div>
         }
@@ -200,12 +221,17 @@ export function CalendarView({
               </Button>
             )}
             {sel.date <= today && (
-              <Link href="/actividades" className="text-sm text-accent">
-                + Actividad
-              </Link>
+              <button type="button" onClick={() => setActivityFormDate(showActivityForm ? null : sel.date)} className="text-sm text-accent">
+                {showActivityForm ? "Cancelar" : "+ Actividad"}
+              </button>
             )}
             <DayOverride key={sel.date} date={sel.date} current={sel.planned} isOverride={sel.planned.source === "override"} routines={routineOptions} />
           </div>
+          {showActivityForm && (
+            <div className="border-t border-line pt-3">
+              <ActivityForm key={sel.date} today={sel.date} bodyWeightKg={bodyWeightKg} defaultType="other" />
+            </div>
+          )}
         </Card>
       )}
     </div>
