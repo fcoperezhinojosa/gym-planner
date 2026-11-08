@@ -48,7 +48,7 @@ export function PlanEditor({ plan, routines, today, currentWeek }: { plan: Plan;
   const w = Math.min(week, plan.cycleWeeks - 1);
   const slot = (d: number): DaySlot & { routineName?: string | null; routineColor?: string | null } => {
     const found = plan.days.find((x) => x.weekIndex === w && x.weekday === d);
-    if (!found) return { kind: "rest", routineId: null, activityType: null, label: null };
+    if (!found) return { kind: "rest", routineId: null, activityType: null, extraActivities: [], label: null };
     const r = routines.find((x) => x.id === found.routineId);
     return { ...found, routineName: r?.name ?? null, routineColor: r?.color ?? null };
   };

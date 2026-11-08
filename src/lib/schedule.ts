@@ -6,7 +6,28 @@ export interface DaySlot {
   kind: DayKind;
   routineId: number | null;
   activityType: string | null;
+  /** Actividades adicionales ese día (p. ej. gimnasio + caminar). Nunca en días de descanso. */
+  extraActivities: string[];
   label: string | null;
+}
+
+export const MAX_EXTRA_ACTIVITIES = 4;
+
+/**
+ * Normaliza un día: sin extras en descanso (si hay extras, la primera pasa a ser la principal),
+ * sin duplicados ni repetir la actividad principal.
+ */
+export function normalizeSlot<T extends DaySlot>(slot: T): T {
+  let extras = [...new Set((slot.extraActivities ?? []).filter(Boolean))];
+  let { kind, activityType } = slot;
+  if (kind === "rest" && extras.length) {
+    kind = "activity";
+    activityType = extras[0];
+    extras = extras.slice(1);
+  }
+  if (kind === "rest") return { ...slot, kind, activityType: null, routineId: null, extraActivities: [] };
+  extras = extras.filter((a) => !(kind === "activity" && a === activityType)).slice(0, MAX_EXTRA_ACTIVITIES);
+  return { ...slot, kind, activityType, extraActivities: extras };
 }
 
 export interface PlanLike {
@@ -35,7 +56,7 @@ export function weekIndexFor(date: string, plan: PlanLike): number {
   return ((weeks % cycle) + cycle) % cycle;
 }
 
-export const REST_DAY: DaySlot = { kind: "rest", routineId: null, activityType: null, label: null };
+export const REST_DAY: DaySlot = { kind: "rest", routineId: null, activityType: null, extraActivities: [], label: null };
 
 /** Qué toca un día: primero la excepción del calendario, si no el plan. */
 export function resolveDay(
@@ -46,13 +67,17 @@ export function resolveDay(
 ): DaySlot & { source: "override" | "plan" | "none"; weekIndex: number | null } {
   const ov = overrides.find((o) => o.date === date);
   const weekIndex = plan ? weekIndexFor(date, plan) : null;
-  if (ov) return { kind: ov.kind, routineId: ov.routineId, activityType: ov.activityType, label: ov.label, source: "override", weekIndex };
+  if (ov) return { ...pick(ov), source: "override", weekIndex };
   // Antes de empezar el plan no hay nada planificado (no cuenta para el cumplimiento).
   if (!plan || date < plan.startDate) return { ...REST_DAY, source: "none", weekIndex };
   const wd = isoWeekday(date);
   const d = days.find((x) => x.weekIndex === weekIndex && x.weekday === wd);
   if (!d) return { ...REST_DAY, source: "plan", weekIndex };
-  return { kind: d.kind, routineId: d.routineId, activityType: d.activityType, label: d.label, source: "plan", weekIndex };
+  return { ...pick(d), source: "plan", weekIndex };
+}
+
+function pick(d: DaySlot): DaySlot {
+  return { kind: d.kind, routineId: d.routineId, activityType: d.activityType, extraActivities: d.extraActivities ?? [], label: d.label };
 }
 
 export function weekLetter(i: number) {

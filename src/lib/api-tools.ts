@@ -211,7 +211,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "set_plan_day",
-    description: "Define qué toca un día del plan: gimnasio con una rutina, una actividad (padel, running…) o descanso. Requiere plan activo (set_plan).",
+    description: "Define qué toca un día del plan: gimnasio con una rutina, una actividad (padel, running…) o descanso, más actividades extra opcionales. Requiere plan activo (set_plan).",
     inputSchema: {
       type: "object",
       properties: {
@@ -220,6 +220,11 @@ export const TOOLS: Tool[] = [
         kind: { type: "string", enum: ["workout", "activity", "rest"] },
         routineId: { type: "integer", description: "Obligatorio si kind = workout" },
         activityType: { type: "string", description: "Obligatorio si kind = activity" },
+        extraActivities: {
+          type: "array",
+          items: { type: "string" },
+          description: "Actividades adicionales ese día (p. ej. [\"walking\"] para gimnasio + caminar). Máx. 4.",
+        },
         label: { type: "string" },
       },
       required: ["weekday", "kind"],

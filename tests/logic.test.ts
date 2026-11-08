@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { propagate, applyToAll, nextSet } from "../src/lib/sets";
-import { resolveDay, weekIndexFor } from "../src/lib/schedule";
+import { normalizeSlot, resolveDay, weekIndexFor } from "../src/lib/schedule";
 import { addDays, isoWeekday, startOfWeek, todayISO, daysInMonth, addMonths } from "../src/lib/dates";
 import { estimateKcal, metFor } from "../src/lib/kcal";
 import { aggregateEnergy, basalKcal, energyVerdict, periodStart } from "../src/lib/energy";
@@ -60,20 +60,36 @@ describe("schedule", () => {
   it("resuelve plan y excepciones", () => {
     const plan = { startDate: "2026-11-02", cycleWeeks: 2 };
     const days = [
-      { weekIndex: 0, weekday: 1, kind: "workout" as const, routineId: 1, activityType: null, label: null },
-      { weekIndex: 1, weekday: 1, kind: "workout" as const, routineId: 2, activityType: null, label: null },
-      { weekIndex: 0, weekday: 4, kind: "activity" as const, routineId: null, activityType: "padel", label: null },
+      { weekIndex: 0, weekday: 1, kind: "workout" as const, routineId: 1, activityType: null, extraActivities: ["walking"], label: null },
+      { weekIndex: 1, weekday: 1, kind: "workout" as const, routineId: 2, activityType: null, extraActivities: [], label: null },
+      { weekIndex: 0, weekday: 4, kind: "activity" as const, routineId: null, activityType: "padel", extraActivities: [], label: null },
     ];
     expect(resolveDay("2026-11-02", plan, days).routineId).toBe(1);
+    expect(resolveDay("2026-11-02", plan, days).extraActivities).toEqual(["walking"]);
+    expect(resolveDay("2026-11-03", plan, days).extraActivities).toEqual([]);
     expect(resolveDay("2026-11-09", plan, days).routineId).toBe(2);
     expect(resolveDay("2026-11-05", plan, days).activityType).toBe("padel");
     expect(resolveDay("2026-11-03", plan, days).kind).toBe("rest");
-    const ov = [{ date: "2026-11-05", kind: "rest" as const, routineId: null, activityType: null, label: "Lesión" }];
+    const ov = [{ date: "2026-11-05", kind: "rest" as const, routineId: null, activityType: null, extraActivities: [], label: "Lesión" }];
     const r = resolveDay("2026-11-05", plan, days, ov);
     expect(r.kind).toBe("rest");
     expect(r.source).toBe("override");
     expect(resolveDay("2026-11-05", null, []).source).toBe("none");
     expect(resolveDay("2026-10-26", plan, days).source).toBe("none"); // antes del inicio
+  });
+  it("normaliza varias actividades en un día", () => {
+    const base = { routineId: null, label: null };
+    // Descanso + extras → la primera extra pasa a ser la principal
+    expect(normalizeSlot({ ...base, kind: "rest", activityType: null, extraActivities: ["walking", "elliptical"] })).toMatchObject({
+      kind: "activity",
+      activityType: "walking",
+      extraActivities: ["elliptical"],
+    });
+    // Sin duplicados ni repetir la principal
+    expect(normalizeSlot({ ...base, kind: "activity", activityType: "padel", extraActivities: ["padel", "walking", "walking"] }).extraActivities).toEqual(["walking"]);
+    // Gimnasio + actividades
+    expect(normalizeSlot({ ...base, kind: "workout", routineId: 1, activityType: null, extraActivities: ["walking"] }).extraActivities).toEqual(["walking"]);
+    expect(normalizeSlot({ ...base, kind: "rest", activityType: null, extraActivities: [] }).extraActivities).toEqual([]);
   });
 });
 

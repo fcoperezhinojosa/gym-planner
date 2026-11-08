@@ -4,7 +4,7 @@ import Link, { useLinkStatus } from "next/link";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { startWorkout } from "@/app/actions";
 import { ActivityForm } from "@/components/ActivityForm";
-import { dayEmoji, dayTitle, slotColor } from "@/components/DayBadge";
+import { dayEmoji, dayEmojis, dayTitle, slotColor } from "@/components/DayBadge";
 import { DayOverride } from "@/components/DayOverride";
 import type { RoutineOption } from "@/components/SlotEditor";
 import { Button, Card, PageHeader, Pill, cx } from "@/components/ui";
@@ -152,7 +152,7 @@ export function CalendarView({
                 )}
               >
                 <span className={cx("text-xs tabular", d.date === today && "font-bold text-accent")}>{Number(d.date.slice(8))}</span>
-                <span className="text-base leading-none">{d.planned.kind === "rest" && !done ? "" : dayEmoji(d.planned)}</span>
+                <CellEmojis slot={d.planned} hidden={d.planned.kind === "rest" && !done} />
                 <span
                   className="absolute bottom-1 h-1 w-4 rounded-full"
                   style={{
@@ -235,5 +235,18 @@ export function CalendarView({
         </Card>
       )}
     </div>
+  );
+}
+
+/** Emojis de la celda: hasta 2 y "+N" si hay más, para que quepa en móvil. */
+function CellEmojis({ slot, hidden }: { slot: CalendarDay["planned"]; hidden: boolean }) {
+  if (hidden) return <span className="text-base leading-none" />;
+  const all = dayEmojis(slot);
+  const shown = all.slice(0, 2);
+  return (
+    <span className={cx("flex items-center leading-none", all.length > 1 ? "text-sm" : "text-base")}>
+      {shown.join("")}
+      {all.length > 2 && <span className="ml-0.5 text-[10px] font-semibold text-muted">+{all.length - 2}</span>}
+    </span>
   );
 }

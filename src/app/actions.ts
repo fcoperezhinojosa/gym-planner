@@ -9,6 +9,7 @@ import { endSession, requireUser, startSession } from "@/lib/auth";
 import { isValidISODate, todayISO } from "@/lib/dates";
 import { ACTIVITY_TYPES, estimateKcal, isIntensity, metFor, type Intensity } from "@/lib/kcal";
 import { isSex } from "@/lib/energy";
+import { normalizeSlot } from "@/lib/schedule";
 import { generateToken } from "@/lib/api-tokens";
 import { lastSetsByExercise, userCacheTag } from "@/lib/data";
 
@@ -263,21 +264,31 @@ export async function savePlan(form: FormData) {
   refresh();
 }
 
-type SlotInput = { kind: "workout" | "rest" | "activity"; routineId?: number | null; activityType?: string | null; label?: string | null };
+type SlotInput = {
+  kind: "workout" | "rest" | "activity";
+  routineId?: number | null;
+  activityType?: string | null;
+  extraActivities?: string[] | null;
+  label?: string | null;
+};
 
-async function validSlot(userId: number, slot: SlotInput) {
-  if (!["workout", "rest", "activity"].includes(slot.kind)) throw new Error("Tipo de día no válido");
+async function validSlot(userId: number, input: SlotInput) {
+  if (!["workout", "rest", "activity"].includes(input.kind)) throw new Error("Tipo de día no válido");
+  const extras = Array.isArray(input.extraActivities) ? input.extraActivities.map(String) : [];
+  if (extras.some((a) => a === "gym" || !ACTIVITY_TYPES[a])) throw new Error("Actividad no válida");
+  const slot = normalizeSlot({
+    kind: input.kind,
+    routineId: input.kind === "workout" ? (input.routineId ?? null) : null,
+    activityType: input.kind === "activity" ? (input.activityType ?? null) : null,
+    extraActivities: extras,
+    label: input.label?.trim().slice(0, 60) || null,
+  });
   if (slot.kind === "workout") {
     if (!slot.routineId) throw new Error("Elige una rutina");
     await ownRoutine(userId, slot.routineId);
   }
   if (slot.kind === "activity" && !ACTIVITY_TYPES[slot.activityType ?? ""]) throw new Error("Actividad no válida");
-  return {
-    kind: slot.kind,
-    routineId: slot.kind === "workout" ? slot.routineId! : null,
-    activityType: slot.kind === "activity" ? slot.activityType! : null,
-    label: slot.label?.trim().slice(0, 60) || null,
-  };
+  return slot;
 }
 
 export async function setPlanDay(weekIndex: number, weekday: number, slot: SlotInput) {
