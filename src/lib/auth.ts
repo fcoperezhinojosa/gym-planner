@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -8,16 +9,23 @@ import { SESSION_COOKIE, SESSION_DAYS, signSession, verifySession } from "./sess
 
 export type CurrentUser = { id: number; name: string; email: string; bodyWeightKg: number };
 
-export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  const uid = await verifySession(token);
-  if (!uid) return null;
+async function getUserById(uid: number): Promise<CurrentUser | null> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(`user-profile:${uid}`);
   const db = await getDb();
   const [u] = await db
     .select({ id: schema.users.id, name: schema.users.name, email: schema.users.email, bodyWeightKg: schema.users.bodyWeightKg })
     .from(schema.users)
     .where(eq(schema.users.id, uid));
   return u ?? null;
+}
+
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  const uid = await verifySession(token);
+  if (!uid) return null;
+  return getUserById(uid);
 });
 
 export async function requireUser(): Promise<CurrentUser> {

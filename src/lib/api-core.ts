@@ -1,7 +1,8 @@
 import "server-only";
+import { revalidateTag } from "next/cache";
 import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { getDb, schema as s } from "@/db";
-import { completedSetsInRange, getActivePlan, getCalendar, getExercise, getRoutine, listRoutines } from "./data";
+import { completedSetsInRange, getActivePlan, getCalendar, getExercise, getRoutine, listRoutines, userCacheTag } from "./data";
 import { addDays, diffDays, isValidISODate, startOfWeek, todayISO } from "./dates";
 import { sql } from "drizzle-orm";
 import { ACTIVITY_TYPES, activityLabel } from "./kcal";
@@ -80,6 +81,7 @@ export async function createExercise(userId: number, input: unknown) {
   if (dup) throw new ApiError(409, `Ya existe un ejercicio con ese nombre (id: ${dup.id}). Úsalo en lugar de crear otro.`);
   const id = `u${userId}_${name.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "_").slice(0, 40)}_${Date.now().toString(36)}`;
   await db.insert(s.exercises).values({ id, name, primaryMuscle, equipment, ownerId: userId, images: image ? [image] : [], instructions });
+  revalidateTag(userCacheTag(userId), { expire: 0 });
   return { id, name, primaryMuscle, equipment };
 }
 
@@ -149,6 +151,7 @@ export async function createRoutineApi(userId: number, input: unknown, baseUrl: 
   const db = await getDb();
   const [r] = await db.insert(s.routines).values({ userId, name, color, notes }).returning({ id: s.routines.id });
   await writeExercises(db, r.id, items);
+  revalidateTag(userCacheTag(userId), { expire: 0 });
   return routineView(userId, r.id, baseUrl);
 }
 
@@ -168,6 +171,7 @@ export async function updateRoutineApi(userId: number, routineId: number, input:
     await db.delete(s.routineExercises).where(eq(s.routineExercises.routineId, routineId));
     await writeExercises(db, routineId, items);
   }
+  revalidateTag(userCacheTag(userId), { expire: 0 });
   return routineView(userId, routineId, baseUrl);
 }
 
@@ -363,6 +367,7 @@ export async function setPlanApi(userId: number, input: Record<string, unknown>)
   } else {
     await db.insert(s.plans).values({ userId, name, startDate, cycleWeeks });
   }
+  revalidateTag(userCacheTag(userId), { expire: 0 });
   return getPlanApi(userId);
 }
 
@@ -391,5 +396,6 @@ export async function setPlanDayApi(userId: number, input: Record<string, unknow
     .insert(s.planDays)
     .values({ planId: plan.id, weekIndex, weekday, ...v })
     .onConflictDoUpdate({ target: [s.planDays.planId, s.planDays.weekIndex, s.planDays.weekday], set: v });
+  revalidateTag(userCacheTag(userId), { expire: 0 });
   return getPlanApi(userId);
 }

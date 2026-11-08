@@ -1,8 +1,11 @@
 import "server-only";
+import { cacheLife, cacheTag } from "next/cache";
 import { and, asc, desc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { getDb, schema as s } from "@/db";
 import { resolveDay, type DaySlot, type DayKind } from "./schedule";
 import { range } from "./dates";
+
+export const userCacheTag = (userId: number) => `user:${userId}`;
 
 export type ExerciseLite = {
   id: string;
@@ -14,6 +17,9 @@ export type ExerciseLite = {
 };
 
 export async function listExercisesLite(userId: number): Promise<ExerciseLite[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(userCacheTag(userId), "exercises");
   const db = await getDb();
   const rows = await db
     .select({
@@ -41,6 +47,9 @@ export async function listExercisesLite(userId: number): Promise<ExerciseLite[]>
 }
 
 export async function getExercise(id: string) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("exercises", `exercise:${id}`);
   const db = await getDb();
   const [e] = await db.select().from(s.exercises).where(eq(s.exercises.id, id));
   return e ?? null;
@@ -48,7 +57,22 @@ export async function getExercise(id: string) {
 
 /* ───────────── Rutinas ───────────── */
 
+export async function listRoutineOptions(userId: number): Promise<{ id: number; name: string; color: string }[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userCacheTag(userId));
+  const db = await getDb();
+  return db
+    .select({ id: s.routines.id, name: s.routines.name, color: s.routines.color })
+    .from(s.routines)
+    .where(eq(s.routines.userId, userId))
+    .orderBy(asc(s.routines.name));
+}
+
 export async function listRoutines(userId: number) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userCacheTag(userId));
   const db = await getDb();
   const routines = await db.select().from(s.routines).where(eq(s.routines.userId, userId)).orderBy(asc(s.routines.name));
   if (!routines.length) return [];
@@ -75,6 +99,9 @@ export async function listRoutines(userId: number) {
 export type RoutineDetail = NonNullable<Awaited<ReturnType<typeof getRoutine>>>;
 
 export async function getRoutine(userId: number, routineId: number) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userCacheTag(userId));
   const db = await getDb();
   const [routine] = await db
     .select()
@@ -121,6 +148,9 @@ export async function getRoutine(userId: number, routineId: number) {
 /* ───────────── Plan y calendario ───────────── */
 
 export async function getActivePlan(userId: number) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userCacheTag(userId));
   const db = await getDb();
   const [plan] = await db
     .select()
@@ -137,6 +167,9 @@ export async function getActivePlan(userId: number) {
 }
 
 export async function getOverrides(userId: number, from: string, to: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userCacheTag(userId));
   const db = await getDb();
   const rows = await db
     .select()
@@ -154,13 +187,16 @@ export type CalendarDay = {
 
 /** Lo planificado + lo hecho para un rango de días. */
 export async function getCalendar(userId: number, from: string, days: number): Promise<CalendarDay[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userCacheTag(userId));
   const dates = range(from, days);
   const to = dates[dates.length - 1];
   const db = await getDb();
   const [plan, overrides, routines, sessions, acts] = await Promise.all([
     getActivePlan(userId),
     getOverrides(userId, from, to),
-    db.select({ id: s.routines.id, name: s.routines.name, color: s.routines.color }).from(s.routines).where(eq(s.routines.userId, userId)),
+    listRoutineOptions(userId),
     db
       .select()
       .from(s.workoutSessions)
@@ -184,6 +220,9 @@ export async function getCalendar(userId: number, from: string, days: number): P
 /* ───────────── Sesiones ───────────── */
 
 export async function getOpenSession(userId: number) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userCacheTag(userId));
   const db = await getDb();
   const [open] = await db
     .select({ id: s.workoutSessions.id, name: s.workoutSessions.name, startedAt: s.workoutSessions.startedAt })
@@ -197,6 +236,9 @@ export async function getOpenSession(userId: number) {
 export type SessionDetail = NonNullable<Awaited<ReturnType<typeof getSessionDetail>>>;
 
 export async function getSessionDetail(userId: number, sessionId: number) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userCacheTag(userId));
   const db = await getDb();
   const [session] = await db
     .select()
@@ -244,6 +286,9 @@ export async function getSessionDetail(userId: number, sessionId: number) {
  * Se usa para prellenar pesos (sobrecarga progresiva) y mostrar "la última vez".
  */
 export async function lastSetsByExercise(userId: number, exerciseIds: string[], excludeSessionId?: number) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userCacheTag(userId));
   const out = new Map<string, { date: string; sets: { reps: number; weightKg: number; completed: boolean }[] }>();
   if (!exerciseIds.length) return out;
   const db = await getDb();
@@ -288,6 +333,9 @@ export async function lastSetsByExercise(userId: number, exerciseIds: string[], 
 }
 
 export async function exerciseHistory(userId: number, exerciseId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userCacheTag(userId));
   const db = await getDb();
   return db
     .select({
@@ -312,6 +360,9 @@ export async function exerciseHistory(userId: number, exerciseId: string) {
 
 /** Series completadas en un rango, con su músculo, para la analítica. */
 export async function completedSetsInRange(userId: number, from: string, to: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userCacheTag(userId));
   const db = await getDb();
   return db
     .select({
