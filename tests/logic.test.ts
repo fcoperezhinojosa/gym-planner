@@ -3,6 +3,7 @@ import { propagate, applyToAll, nextSet } from "../src/lib/sets";
 import { resolveDay, weekIndexFor } from "../src/lib/schedule";
 import { addDays, isoWeekday, startOfWeek, todayISO, daysInMonth, addMonths } from "../src/lib/dates";
 import { estimateKcal, metFor } from "../src/lib/kcal";
+import { aggregateEnergy, basalKcal, energyVerdict, periodStart } from "../src/lib/energy";
 import { epley1RM, suggestWeight, weekStreak } from "../src/lib/stats";
 
 describe("propagate", () => {
@@ -92,5 +93,54 @@ describe("kcal y stats", () => {
   it("racha", () => {
     expect(weekStreak([{ done: 4, planned: 4 }, { done: 3, planned: 4 }, { done: 4, planned: 4 }, { done: 1, planned: 4 }])).toBe(1);
     expect(weekStreak([{ done: 4, planned: 4 }, { done: 4, planned: 4 }, { done: 4, planned: 4 }])).toBe(3);
+  });
+});
+
+describe("balance energético", () => {
+  it("Mifflin-St Jeor con datos completos", () => {
+    expect(basalKcal({ sex: "male", age: 30, heightCm: 180, weightKg: 80 })).toEqual({ kcal: 1780, exact: true });
+    expect(basalKcal({ sex: "female", age: 30, heightCm: 165, weightKg: 60 }).kcal).toBe(1320);
+  });
+  it("aproximación si faltan datos", () => {
+    expect(basalKcal({ weightKg: 80 })).toEqual({ kcal: 1760, exact: false });
+  });
+  it("agrupa por semana y calcula balance solo con días de consumo conocido", () => {
+    const days = [
+      { date: "2026-11-02", gym: 300, other: 0, intake: 2500 },
+      { date: "2026-11-03", gym: 0, other: 400, intake: null },
+      { date: "2026-11-09", gym: 0, other: 0, intake: 1800 },
+    ];
+    const [w1, w2] = aggregateEnergy(days, "week", 2000, null);
+    expect(w1).toMatchObject({ key: "2026-11-02", days: 2, burned: 4700, intake: 2500, intakeDays: 1, balance: 200 });
+    expect(w2).toMatchObject({ key: "2026-11-09", burned: 2000, balance: -200 });
+  });
+  it("usa el consumo habitual si no hay registro", () => {
+    const [d] = aggregateEnergy([{ date: "2026-11-02", gym: 0, other: 0, intake: null }], "day", 2000, 2300);
+    expect(d.balance).toBe(300);
+  });
+  it("agrupa por mes", () => {
+    const b = aggregateEnergy(
+      [
+        { date: "2026-10-31", gym: 0, other: 0, intake: null },
+        { date: "2026-11-01", gym: 0, other: 0, intake: null },
+      ],
+      "month",
+      2000,
+      null,
+    );
+    expect(b.map((x) => x.key)).toEqual(["2026-10-01", "2026-11-01"]);
+    expect(b[0].intake).toBeNull();
+  });
+  it("periodStart", () => {
+    expect(periodStart("2026-11-08", "day", 14)).toBe("2026-10-26");
+    expect(periodStart("2026-11-08", "week", 12)).toBe("2026-08-17");
+    expect(periodStart("2026-11-08", "month", 6)).toBe("2026-06-01");
+  });
+  it("veredicto", () => {
+    expect(energyVerdict(null).tone).toBe("neutral");
+    expect(energyVerdict(400).tone).toBe("warn");
+    expect(energyVerdict(-100).tone).toBe("good");
+    expect(energyVerdict(-500).tone).toBe("good");
+    expect(energyVerdict(-1200).tone).toBe("danger");
   });
 });

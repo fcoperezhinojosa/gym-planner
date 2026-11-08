@@ -8,6 +8,7 @@ import { getDb, schema as s } from "@/db";
 import { endSession, requireUser, startSession } from "@/lib/auth";
 import { isValidISODate, todayISO } from "@/lib/dates";
 import { ACTIVITY_TYPES, estimateKcal, isIntensity, metFor, type Intensity } from "@/lib/kcal";
+import { isSex } from "@/lib/energy";
 import { generateToken } from "@/lib/api-tokens";
 import { lastSetsByExercise, userCacheTag } from "@/lib/data";
 
@@ -65,8 +66,18 @@ export async function updateProfile(_: FormState, form: FormData): Promise<FormS
   const user = await requireUser();
   const name = str(form.get("name")) || user.name;
   const bodyWeightKg = clamp(num(form.get("weight"), user.bodyWeightKg), 30, 250);
+  const sexRaw = str(form.get("sex"));
+  const sex = isSex(sexRaw) ? sexRaw : null;
+  const optInt = (k: string, min: number, max: number) => {
+    const v = Math.round(num(form.get(k), NaN));
+    return Number.isFinite(v) && v >= min && v <= max ? v : null;
+  };
+  const thisYear = Number(todayISO().slice(0, 4));
+  const birthYear = optInt("birthYear", thisYear - 100, thisYear - 12);
+  const heightCm = optInt("heightCm", 120, 230);
+  const dailyIntakeKcal = optInt("dailyIntakeKcal", 800, 6000);
   const db = await getDb();
-  await db.update(s.users).set({ name, bodyWeightKg }).where(eq(s.users.id, user.id));
+  await db.update(s.users).set({ name, bodyWeightKg, sex, birthYear, heightCm, dailyIntakeKcal }).where(eq(s.users.id, user.id));
   updateTag(`user-profile:${user.id}`);
   invalidateUser(user.id);
   refresh();
@@ -425,7 +436,7 @@ export async function logActivity(_: FormState, form: FormData): Promise<FormSta
   const date = str(form.get("date"));
   const durationMin = Math.round(num(form.get("durationMin")));
   const intensity = str(form.get("intensity"));
-  if (!ACTIVITY_TYPES[type] || type === "gym") return { error: "Elige una actividad" };
+  if (!ACTIVITY_TYPES[type]) return { error: "Elige una actividad" };
   if (!isValidISODate(date)) return { error: "Fecha no válida" };
   if (durationMin < 1 || durationMin > 600) return { error: "Duración entre 1 y 600 minutos" };
   if (!isIntensity(intensity)) return { error: "Intensidad no válida" };
@@ -443,6 +454,29 @@ export async function deleteActivity(id: number) {
   await db.delete(s.activities).where(and(eq(s.activities.id, id), eq(s.activities.userId, user.id)));
   invalidateUser(user.id);
   refresh();
+}
+
+/* ───────────── kcal consumidas ───────────── */
+
+/** Guarda las kcal consumidas un día. Vacío o 0 borra el registro. */
+export async function logIntake(_: FormState, form: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const date = str(form.get("date"));
+  const raw = str(form.get("kcal"));
+  if (!isValidISODate(date)) return { error: "Fecha no válida" };
+  const kcal = raw ? Math.round(num(raw, NaN)) : 0;
+  if (!Number.isFinite(kcal) || kcal < 0 || kcal > 15000) return { error: "kcal entre 0 y 15000" };
+  const db = await getDb();
+  const where = and(eq(s.intakeLogs.userId, user.id), eq(s.intakeLogs.date, date));
+  if (kcal === 0) await db.delete(s.intakeLogs).where(where);
+  else
+    await db
+      .insert(s.intakeLogs)
+      .values({ userId: user.id, date, kcal })
+      .onConflictDoUpdate({ target: [s.intakeLogs.userId, s.intakeLogs.date], set: { kcal } });
+  invalidateUser(user.id);
+  refresh();
+  return { ok: true };
 }
 
 /* ───────────── Ejercicios propios ───────────── */

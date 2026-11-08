@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { WeeklyBarChart, WeeklyKcalChart } from "@/components/Charts";
+import { EnergyBalance } from "@/components/EnergyBalance";
 import { Card, PageHeader, Stat } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { completedSetsInRange, getCalendar } from "@/lib/data";
+import { completedSetsInRange, getCalendar, getEnergyDays } from "@/lib/data";
 import { addDays, diffDays, formatShort, startOfWeek, todayISO } from "@/lib/dates";
+import { baseDailyKcal, basalKcal, periodStart } from "@/lib/energy";
 import { MUSCLE_GROUPS, muscleGroup, type MuscleGroup } from "@/lib/labels";
 import { epley1RM, weekStreak } from "@/lib/stats";
 import { summarizeDays } from "@/lib/week";
@@ -18,13 +20,28 @@ export default async function AnalyticsPage() {
   const today = todayISO();
   const thisWeek = startOfWeek(today);
   const from = addDays(thisWeek, -7 * (WEEKS - 1));
-  const [days, sets] = await Promise.all([getCalendar(user.id, from, WEEKS * 7), completedSetsInRange(user.id, from, addDays(thisWeek, 6))]);
+  // Balance energético: hasta 6 meses atrás (lo máximo que muestra la vista "Mes").
+  const energyFrom = [periodStart(today, "month", 6), periodStart(today, "week", 12)].sort()[0];
+  const [days, sets, energyDays] = await Promise.all([
+    getCalendar(user.id, from, WEEKS * 7),
+    completedSetsInRange(user.id, from, addDays(thisWeek, 6)),
+    getEnergyDays(user.id, energyFrom, diffDays(today, energyFrom) + 1),
+  ]);
+  const bmr = basalKcal({
+    sex: user.sex,
+    age: user.birthYear ? Number(today.slice(0, 4)) - user.birthYear : null,
+    heightCm: user.heightCm,
+    weightKg: user.bodyWeightKg,
+  });
 
   const weeks = Array.from({ length: WEEKS }, (_, i) => {
     const start = addDays(from, i * 7);
     const wd = days.slice(i * 7, i * 7 + 7);
     const sum = summarizeDays(wd, today);
-    const kcalGym = wd.reduce((a, d) => a + d.sessions.reduce((x, s) => x + (s.kcal ?? 0), 0), 0);
+    const kcalGym = wd.reduce(
+      (a, d) => a + d.sessions.reduce((x, s) => x + (s.kcal ?? 0), 0) + d.activities.reduce((x, s) => x + (s.type === "gym" ? s.kcal : 0), 0),
+      0,
+    );
     return { start, label: formatShort(start), ...sum, kcalGym, kcalAct: sum.kcal - kcalGym };
   });
   const cur = weeks[weeks.length - 1];
@@ -72,8 +89,17 @@ export default async function AnalyticsPage() {
         <Stat label="Racha" value={`${streak} sem.`} hint={adherence !== null ? `cumplimiento ${adherence}%` : "cumpliendo el plan"} />
       </section>
 
+      <EnergyBalance
+        days={energyDays}
+        today={today}
+        base={baseDailyKcal(bmr.kcal)}
+        bmr={bmr.kcal}
+        bmrExact={bmr.exact}
+        defaultIntake={user.dailyIntakeKcal}
+      />
+
       <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Kcal por semana <span className="text-xs font-normal text-muted">(estimadas)</span></h2>
+        <h2 className="mb-3 font-semibold">Kcal de ejercicio por semana <span className="text-xs font-normal text-muted">(estimadas)</span></h2>
         <WeeklyKcalChart data={weeks.map((w) => ({ week: w.label, gym: w.kcalGym, activity: w.kcalAct }))} />
       </Card>
 

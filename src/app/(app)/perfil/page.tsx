@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Perfil" };
 const LINKS = [
   { href: "/plan", label: "Plan semanal", desc: "Qué toca cada día y rotación A/B" },
   { href: "/ejercicios", label: "Ejercicios", desc: "Catálogo con imágenes y tu progresión" },
-  { href: "/actividades", label: "Actividades", desc: "Pádel, correr, bici…" },
+  { href: "/actividades", label: "Actividades", desc: "Gimnasio, pádel, caminar, elíptica…" },
 ];
 
 export default async function ProfilePage() {
@@ -48,7 +48,14 @@ export default async function ProfilePage() {
       </ul>
       <Card className="p-4">
         <h2 className="mb-3 font-semibold">Perfil</h2>
-        <ProfileForm name={user.name} weight={user.bodyWeightKg} />
+        <ProfileForm
+          name={user.name}
+          weight={user.bodyWeightKg}
+          sex={user.sex}
+          birthYear={user.birthYear}
+          heightCm={user.heightCm}
+          dailyIntakeKcal={user.dailyIntakeKcal}
+        />
       </Card>
       <Card className="p-4 md:hidden">
         <h2 className="mb-3 font-semibold">Apariencia</h2>

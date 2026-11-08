@@ -37,11 +37,9 @@ function ActivityFormInner({
       <div>
         <label className={label} htmlFor="type">Actividad</label>
         <select id="type" name="type" className={input} value={type} onChange={(e) => setType(e.target.value)}>
-          {Object.entries(ACTIVITY_TYPES)
-            .filter(([k]) => k !== "gym")
-            .map(([k, v]) => (
-              <option key={k} value={k}>{v.emoji} {v.label}</option>
-            ))}
+          {Object.entries(ACTIVITY_TYPES).map(([k, v]) => (
+            <option key={k} value={k}>{v.emoji} {v.label}</option>
+          ))}
         </select>
       </div>
       <div>

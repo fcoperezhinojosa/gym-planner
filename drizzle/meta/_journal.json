@@ -15,6 +15,13 @@
       "when": 1793659925095,
       "tag": "0001_adorable_songbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794173654948,
+      "tag": "0002_kcal_balance",
+      "breakpoints": true
     }
   ]
 }
