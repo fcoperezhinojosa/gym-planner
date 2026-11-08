@@ -225,7 +225,14 @@ export function CalendarView({
                 {showActivityForm ? "Cancelar" : "+ Actividad"}
               </button>
             )}
-            <DayOverride key={sel.date} date={sel.date} current={sel.planned} isOverride={sel.planned.source === "override"} routines={routineOptions} />
+            <DayOverride
+              key={sel.date}
+              date={sel.date}
+              current={sel.planned}
+              isOverride={sel.planned.source === "override"}
+              routines={routineOptions}
+              showAddActivity={sel.date > today}
+            />
           </div>
           {showActivityForm && (
             <div className="border-t border-line pt-3">
