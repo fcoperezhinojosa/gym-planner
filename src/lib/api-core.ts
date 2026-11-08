@@ -2,7 +2,7 @@ import "server-only";
 import { revalidateTag } from "next/cache";
 import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { getDb, schema as s } from "@/db";
-import { completedSetsInRange, getActivePlan, getCalendar, getExercise, getRoutine, listRoutines, userCacheTag } from "./data";
+import { completedSetsInRange, getActivePlan, getCalendar, getExercise, getRoutine, listRoutineOptions, listRoutines, userCacheTag } from "./data";
 import { addDays, diffDays, isValidISODate, startOfWeek, todayISO } from "./dates";
 import { sql } from "drizzle-orm";
 import { ACTIVITY_TYPES, activityLabel } from "./kcal";
@@ -258,7 +258,7 @@ export async function getCalendarApi(userId: number, from: string | undefined, d
 export async function getPlanApi(userId: number) {
   const plan = await getActivePlan(userId);
   if (!plan) return { plan: null };
-  const routines = await listRoutines(userId);
+  const routines = await listRoutineOptions(userId);
   const name = (id: number | null) => routines.find((r) => r.id === id)?.name ?? null;
   return {
     plan: {

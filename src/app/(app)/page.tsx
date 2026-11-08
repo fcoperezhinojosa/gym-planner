@@ -5,7 +5,7 @@ import { dayEmoji, dayTitle, slotColor } from "@/components/DayBadge";
 import { DayOverride } from "@/components/DayOverride";
 import { Button, Card, LinkButton, Pill, Stat, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { getCalendar, getOpenSession, getRoutine, listRoutines } from "@/lib/data";
+import { getCalendar, getOpenSession, getRoutine, listRoutineOptions } from "@/lib/data";
 import { startOfWeek, todayISO } from "@/lib/dates";
 import { activityEmoji, activityLabel } from "@/lib/kcal";
 import { MONTHS, WEEKDAYS, WEEKDAYS_SHORT, muscleLabel } from "@/lib/labels";
@@ -15,13 +15,16 @@ import { dayDone, summarizeDays } from "@/lib/week";
 export default async function TodayPage() {
   const user = await requireUser();
   const today = todayISO();
-  const [week, open, routines] = await Promise.all([getCalendar(user.id, startOfWeek(today), 7), getOpenSession(user.id), listRoutines(user.id)]);
+  const [week, open, routineOptions] = await Promise.all([
+    getCalendar(user.id, startOfWeek(today), 7),
+    getOpenSession(user.id),
+    listRoutineOptions(user.id),
+  ]);
   const day = week.find((d) => d.date === today)!;
   const routine = day.planned.kind === "workout" && day.planned.routineId ? await getRoutine(user.id, day.planned.routineId) : null;
   const sum = summarizeDays(week, today);
   const [y, m, d] = today.split("-").map(Number);
   const wd = week.findIndex((x) => x.date === today);
-  const routineOptions = routines.map((r) => ({ id: r.id, name: r.name, color: r.color }));
 
   return (
     <div className="space-y-5">
@@ -119,14 +122,14 @@ export default async function TodayPage() {
       {day.planned.source === "none" && day.planned.weekIndex === null && (
         <Card className="p-4 text-sm">
           Aún no tienes plan semanal. <Link href="/plan" className="font-semibold text-accent">Créalo aquí</Link> para que cada día te diga qué toca.
-          {routines.length === 0 && <> Antes, <Link href="/rutinas" className="font-semibold text-accent">crea tus rutinas</Link>.</>}
+          {routineOptions.length === 0 && <> Antes, <Link href="/rutinas" className="font-semibold text-accent">crea tus rutinas</Link>.</>}
         </Card>
       )}
 
       <section>
         <div className="mb-2 flex items-baseline justify-between">
           <h2 className="font-semibold">Esta semana</h2>
-          <Link href="/calendario" className="text-xs text-accent">Ver calendario</Link>
+          <Link href="/calendario" prefetch={true} className="text-xs text-accent">Ver calendario</Link>
         </div>
         <div className="grid grid-cols-7 gap-1.5">
           {week.map((x, i) => {
@@ -135,6 +138,7 @@ export default async function TodayPage() {
               <Link
                 key={x.date}
                 href={`/calendario?d=${x.date}`}
+                prefetch={true}
                 className={cx("flex flex-col items-center gap-1 rounded-xl border py-2", x.date === today ? "border-accent" : "border-line", "bg-card")}
               >
                 <span className="text-[11px] text-muted">{WEEKDAYS_SHORT[i]}</span>
@@ -160,7 +164,7 @@ export default async function TodayPage() {
         <Stat label="Kcal (est.)" value={sum.kcal.toLocaleString("es-ES")} />
       </section>
 
-      {routines.length === 0 && (
+      {routineOptions.length === 0 && (
         <Card className="flex items-center justify-between gap-3 p-4">
           <p className="text-sm">Empieza creando tu primera rutina.</p>
           <LinkButton href="/rutinas" size="sm">Crear rutina</LinkButton>
