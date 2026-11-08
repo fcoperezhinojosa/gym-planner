@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { logout } from "@/app/actions";
 import { ApiTokens } from "@/components/ApiTokens";
 import { getDb, schema } from "@/db";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProfileForm } from "@/components/ProfileForm";
 import { Button, Card, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -48,6 +49,10 @@ export default async function ProfilePage() {
       <Card className="p-4">
         <h2 className="mb-3 font-semibold">Perfil</h2>
         <ProfileForm name={user.name} weight={user.bodyWeightKg} />
+      </Card>
+      <Card className="p-4 md:hidden">
+        <h2 className="mb-3 font-semibold">Apariencia</h2>
+        <ThemeToggle />
       </Card>
       <Card className="p-4">
         <h2 className="mb-3 font-semibold">Acceso para IAs</h2>
