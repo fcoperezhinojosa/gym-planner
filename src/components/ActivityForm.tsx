@@ -1,16 +1,36 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { logActivity } from "@/app/actions";
 import { ACTIVITY_TYPES, INTENSITIES, estimateKcal, metFor, type Intensity } from "@/lib/kcal";
 import { Button, input, label } from "./ui";
 
-export function ActivityForm({ today, bodyWeightKg, defaultType = "padel" }: { today: string; bodyWeightKg: number; defaultType?: string }) {
+function ActivityFormInner({
+  today,
+  bodyWeightKg,
+  defaultType = "other",
+  onSuccess,
+}: {
+  today: string;
+  bodyWeightKg: number;
+  defaultType?: string;
+  onSuccess: () => void;
+}) {
   const [state, action, pending] = useActionState(logActivity, undefined);
   const [type, setType] = useState(defaultType);
-  const [minutes, setMinutes] = useState(90);
+  const [minutes, setMinutes] = useState(45);
   const [intensity, setIntensity] = useState<Intensity>("moderate");
+  const router = useRouter();
   const kcal = estimateKcal(metFor(type, intensity), bodyWeightKg, minutes);
+
+  useEffect(() => {
+    if (state?.ok) {
+      router.refresh();
+      onSuccess();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.ok]);
 
   return (
     <form action={action} className="grid gap-3 sm:grid-cols-2">
@@ -49,7 +69,19 @@ export function ActivityForm({ today, bodyWeightKg, defaultType = "padel" }: { t
         <Button disabled={pending}>Registrar</Button>
       </div>
       {state?.error && <p className="text-sm text-danger sm:col-span-2">{state.error}</p>}
-      {state?.ok && <p className="text-sm text-good sm:col-span-2">Guardado ✓</p>}
     </form>
+  );
+}
+
+export function ActivityForm({ today, bodyWeightKg, defaultType = "other" }: { today: string; bodyWeightKg: number; defaultType?: string }) {
+  const [key, setKey] = useState(0);
+  return (
+    <ActivityFormInner
+      key={key}
+      today={today}
+      bodyWeightKg={bodyWeightKg}
+      defaultType={defaultType}
+      onSuccess={() => setKey((k) => k + 1)}
+    />
   );
 }
