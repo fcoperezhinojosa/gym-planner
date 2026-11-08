@@ -39,7 +39,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           </div>
         }
       />
-      <CalendarView days={days} month={month} today={today} routines={routineOptions} />
+      <CalendarView days={days} month={month} today={today} routines={routineOptions} bodyWeightKg={user.bodyWeightKg} />
     </div>
   );
 }

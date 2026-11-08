@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { startWorkout } from "@/app/actions";
+import { ActivityForm } from "@/components/ActivityForm";
 import { dayEmoji, dayTitle, slotColor } from "@/components/DayBadge";
 import { DayOverride } from "@/components/DayOverride";
 import type { RoutineOption } from "@/components/SlotEditor";
@@ -19,11 +21,13 @@ import { dayDone } from "@/lib/week";
  * ya tenemos los datos de todo el mes, así que solo se actualiza la URL
  * (history.replaceState, que Next sincroniza con useSearchParams) sin ir al servidor.
  */
-export function CalendarView({ days, month, today, routines }: { days: CalendarDay[]; month: string; today: string; routines: RoutineOption[] }) {
+export function CalendarView({ days, month, today, routines, bodyWeightKg }: { days: CalendarDay[]; month: string; today: string; routines: RoutineOption[]; bodyWeightKg: number }) {
   const d = useSearchParams().get("d");
   const selected = isValidISODate(d) ? d : today;
   const sel = days.find((x) => x.date === selected) ?? null;
   const monthPrefix = month.slice(0, 7);
+  const [showActivityForm, setShowActivityForm] = useState(false);
+  useEffect(() => setShowActivityForm(false), [selected]);
 
   function select(date: string) {
     window.history.replaceState(null, "", `/calendario?m=${month}&d=${date}`);
@@ -99,9 +103,18 @@ export function CalendarView({ days, month, today, routines }: { days: CalendarD
                 </Button>
               </form>
             )}
-            {sel.date <= today && <Link href="/actividades" className="text-sm text-accent">+ Actividad</Link>}
+            {sel.date <= today && (
+              <button type="button" onClick={() => setShowActivityForm((v) => !v)} className="text-sm text-accent">
+                {showActivityForm ? "Cancelar" : "+ Actividad"}
+              </button>
+            )}
             <DayOverride key={sel.date} date={sel.date} current={sel.planned} isOverride={sel.planned.source === "override"} routines={routines} />
           </div>
+          {showActivityForm && (
+            <div className="border-t border-line pt-3">
+              <ActivityForm today={sel.date} bodyWeightKg={bodyWeightKg} defaultType="other" />
+            </div>
+          )}
         </Card>
       )}
     </>
