@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cx } from "./ui";
+import { ThemeToggle } from "./ThemeToggle";
 
 const ITEMS = [
   { href: "/", label: "Hoy", icon: "M3 12l9-8 9 8M5 10v10h5v-6h4v6h5V10" },
@@ -55,6 +56,9 @@ export function Nav() {
             </Link>
           ))}
         </nav>
+        <div className="mt-auto px-1">
+          <ThemeToggle />
+        </div>
       </aside>
       {/* Móvil */}
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
