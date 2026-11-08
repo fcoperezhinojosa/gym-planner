@@ -98,10 +98,21 @@ export default async function TodayPage() {
             <DayOverride date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions} />
           </div>
 
-          {day.planned.kind === "activity" && day.activities.length === 0 && (
+          {(day.planned.kind === "activity" || day.sessions.some((s) => s.finished)) && (
             <div className="border-t border-line pt-4">
-              <p className="mb-3 text-sm font-semibold">Registrar {activityLabel(day.planned.activityType).toLowerCase()}</p>
-              <ActivityForm today={today} bodyWeightKg={user.bodyWeightKg} defaultType={day.planned.activityType ?? "padel"} />
+              {day.planned.kind === "activity" && day.activities.length === 0 ? (
+                <>
+                  <p className="mb-3 text-sm font-semibold">Registrar {activityLabel(day.planned.activityType).toLowerCase()}</p>
+                  <ActivityForm today={today} bodyWeightKg={user.bodyWeightKg} defaultType={day.planned.activityType ?? "other"} />
+                </>
+              ) : (
+                <details>
+                  <summary className="cursor-pointer select-none text-sm font-medium text-muted hover:text-fg">+ Añadir actividad extra</summary>
+                  <div className="mt-3">
+                    <ActivityForm today={today} bodyWeightKg={user.bodyWeightKg} defaultType={day.planned.activityType ?? "other"} />
+                  </div>
+                </details>
+              )}
             </div>
           )}
         </div>

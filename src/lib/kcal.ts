@@ -19,6 +19,8 @@ export const ACTIVITY_TYPES: Record<string, { label: string; emoji: string; met:
   swimming: { label: "Natación", emoji: "🏊", met: { light: 5.8, moderate: 8, vigorous: 9.8 } },
   walking: { label: "Caminar", emoji: "🚶", met: { light: 2.8, moderate: 3.5, vigorous: 5 } },
   football: { label: "Fútbol", emoji: "⚽", met: { light: 5, moderate: 7, vigorous: 10 } },
+  elliptical: { label: "Elíptica", emoji: "🏃", met: { light: 4.9, moderate: 6, vigorous: 8 } },
+  rowing: { label: "Remo (máquina)", emoji: "🚣", met: { light: 4.8, moderate: 7, vigorous: 8.5 } },
   yoga: { label: "Yoga / movilidad", emoji: "🧘", met: { light: 2, moderate: 2.5, vigorous: 4 } },
   other: { label: "Otra", emoji: "✨", met: { light: 3.5, moderate: 5, vigorous: 7 } },
 };
