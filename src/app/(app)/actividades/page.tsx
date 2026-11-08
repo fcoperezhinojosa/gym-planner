@@ -16,7 +16,7 @@ export default async function ActivitiesPage() {
   const list = await db.select().from(s.activities).where(eq(s.activities.userId, user.id)).orderBy(desc(s.activities.date), desc(s.activities.id)).limit(50);
   return (
     <div className="space-y-4">
-      <PageHeader title="Actividades" subtitle="Pádel, correr, bici… también cuentan para tu semana." />
+      <PageHeader title="Actividades" subtitle="Gimnasio, pádel, caminar, elíptica… todo suma a tus kcal gastadas." />
       <Card className="p-4">
         <ActivityForm today={todayISO()} bodyWeightKg={user.bodyWeightKg} />
       </Card>

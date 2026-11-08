@@ -4,6 +4,7 @@ import { and, asc, desc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-o
 import { getDb, schema as s } from "@/db";
 import { resolveDay, type DaySlot, type DayKind } from "./schedule";
 import { range } from "./dates";
+import type { EnergyDay } from "./energy";
 
 export const userCacheTag = (userId: number) => `user:${userId}`;
 
@@ -386,4 +387,46 @@ export async function completedSetsInRange(userId: number, from: string, to: str
         lte(s.workoutSessions.date, to),
       ),
     );
+}
+
+/* ───────────── Balance energético ───────────── */
+
+/** kcal de ejercicio (gym / otras) y consumidas, día a día, en [from, from + days). */
+export async function getEnergyDays(userId: number, from: string, days: number): Promise<EnergyDay[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userCacheTag(userId));
+  const dates = range(from, days);
+  const to = dates[dates.length - 1];
+  const db = await getDb();
+  const [sessions, acts, intake] = await Promise.all([
+    db
+      .select({ date: s.workoutSessions.date, kcal: s.workoutSessions.kcal })
+      .from(s.workoutSessions)
+      .where(and(eq(s.workoutSessions.userId, userId), isNotNull(s.workoutSessions.endedAt), gte(s.workoutSessions.date, from), lte(s.workoutSessions.date, to))),
+    db
+      .select({ date: s.activities.date, type: s.activities.type, kcal: s.activities.kcal })
+      .from(s.activities)
+      .where(and(eq(s.activities.userId, userId), gte(s.activities.date, from), lte(s.activities.date, to))),
+    db
+      .select({ date: s.intakeLogs.date, kcal: s.intakeLogs.kcal })
+      .from(s.intakeLogs)
+      .where(and(eq(s.intakeLogs.userId, userId), gte(s.intakeLogs.date, from), lte(s.intakeLogs.date, to))),
+  ]);
+  const byDate = new Map<string, EnergyDay>(dates.map((date) => [date, { date, gym: 0, other: 0, intake: null }]));
+  for (const x of sessions) {
+    const d = byDate.get(x.date);
+    if (d) d.gym += x.kcal ?? 0;
+  }
+  for (const a of acts) {
+    const d = byDate.get(a.date);
+    if (!d) continue;
+    if (a.type === "gym") d.gym += a.kcal;
+    else d.other += a.kcal;
+  }
+  for (const i of intake) {
+    const d = byDate.get(i.date);
+    if (d) d.intake = i.kcal;
+  }
+  return [...byDate.values()];
 }

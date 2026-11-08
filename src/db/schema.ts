@@ -17,6 +17,12 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
   bodyWeightKg: real("body_weight_kg").notNull().default(75),
+  /** Datos para estimar el metabolismo basal (Mifflin-St Jeor). Opcionales. */
+  sex: text("sex"),
+  birthYear: integer("birth_year"),
+  heightCm: real("height_cm"),
+  /** kcal que come habitualmente al día; se usa si un día no tiene registro propio. */
+  dailyIntakeKcal: integer("daily_intake_kcal"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -167,6 +173,18 @@ export const activities = pgTable(
     notes: text("notes"),
   },
   (t) => [index("activities_user_date_idx").on(t.userId, t.date)],
+);
+
+/** kcal consumidas (comida) por día. Una fila por usuario y fecha. */
+export const intakeLogs = pgTable(
+  "intake_logs",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    kcal: integer("kcal").notNull(),
+  },
+  (t) => [uniqueIndex("intake_logs_user_date_idx").on(t.userId, t.date)],
 );
 
 /* ───────────── Acceso para IAs / integraciones ───────────── */

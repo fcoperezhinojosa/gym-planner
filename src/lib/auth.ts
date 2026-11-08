@@ -7,7 +7,16 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { SESSION_COOKIE, SESSION_DAYS, signSession, verifySession } from "./session";
 
-export type CurrentUser = { id: number; name: string; email: string; bodyWeightKg: number };
+export type CurrentUser = {
+  id: number;
+  name: string;
+  email: string;
+  bodyWeightKg: number;
+  sex: string | null;
+  birthYear: number | null;
+  heightCm: number | null;
+  dailyIntakeKcal: number | null;
+};
 
 async function getUserById(uid: number): Promise<CurrentUser | null> {
   "use cache";
@@ -15,7 +24,16 @@ async function getUserById(uid: number): Promise<CurrentUser | null> {
   cacheTag(`user-profile:${uid}`);
   const db = await getDb();
   const [u] = await db
-    .select({ id: schema.users.id, name: schema.users.name, email: schema.users.email, bodyWeightKg: schema.users.bodyWeightKg })
+    .select({
+      id: schema.users.id,
+      name: schema.users.name,
+      email: schema.users.email,
+      bodyWeightKg: schema.users.bodyWeightKg,
+      sex: schema.users.sex,
+      birthYear: schema.users.birthYear,
+      heightCm: schema.users.heightCm,
+      dailyIntakeKcal: schema.users.dailyIntakeKcal,
+    })
     .from(schema.users)
     .where(eq(schema.users.id, uid));
   return u ?? null;
