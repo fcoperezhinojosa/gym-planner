@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { startWorkout } from "@/app/actions";
 import { ActivityForm } from "@/components/ActivityForm";
@@ -26,8 +26,9 @@ export function CalendarView({ days, month, today, routines, bodyWeightKg }: { d
   const selected = isValidISODate(d) ? d : today;
   const sel = days.find((x) => x.date === selected) ?? null;
   const monthPrefix = month.slice(0, 7);
-  const [showActivityForm, setShowActivityForm] = useState(false);
-  useEffect(() => setShowActivityForm(false), [selected]);
+  // El formulario de actividad se abre para un día concreto: al cambiar de día se cierra solo.
+  const [activityFormDate, setActivityFormDate] = useState<string | null>(null);
+  const showActivityForm = activityFormDate === selected;
 
   function select(date: string) {
     window.history.replaceState(null, "", `/calendario?m=${month}&d=${date}`);
@@ -104,7 +105,7 @@ export function CalendarView({ days, month, today, routines, bodyWeightKg }: { d
               </form>
             )}
             {sel.date <= today && (
-              <button type="button" onClick={() => setShowActivityForm((v) => !v)} className="text-sm text-accent">
+              <button type="button" onClick={() => setActivityFormDate(showActivityForm ? null : selected)} className="text-sm text-accent">
                 {showActivityForm ? "Cancelar" : "+ Actividad"}
               </button>
             )}
