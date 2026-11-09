@@ -42,13 +42,18 @@ export function SessionRunner({
   exercises,
   previous,
   bodyWeightKg,
+  routineExerciseIds,
 }: {
   session: SessionDetail;
   exercises: ExerciseLite[];
   previous: Prev;
   bodyWeightKg: number;
+  routineExerciseIds: string[] | null;
 }) {
   const finished = session.endedAt !== null;
+  const sessionExerciseIds = session.exercises.map((e) => e.exerciseId);
+  const hasExerciseChanges =
+    !!routineExerciseIds && JSON.stringify(sessionExerciseIds) !== JSON.stringify(routineExerciseIds);
   const [picker, setPicker] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [pending, start] = useTransition();
@@ -196,6 +201,8 @@ export function SessionRunner({
             setFinishing(false);
           }}
           hasRoutine={session.routineId !== null}
+          hasExerciseChanges={hasExerciseChanges}
+          routineName={session.name}
           defaultMinutes={Math.max(1, Math.round(elapsed / 60))}
           bodyWeightKg={bodyWeightKg}
           onClose={() => setFinishing(false)}
@@ -274,6 +281,8 @@ function FinishDialog({
   exerciseIds,
   onQueued,
   hasRoutine,
+  hasExerciseChanges,
+  routineName,
   defaultMinutes,
   bodyWeightKg,
   onClose,
@@ -282,6 +291,8 @@ function FinishDialog({
   exerciseIds: number[];
   onQueued: () => void;
   hasRoutine: boolean;
+  hasExerciseChanges: boolean;
+  routineName: string;
   defaultMinutes: number;
   bodyWeightKg: number;
   onClose: () => void;
@@ -290,6 +301,8 @@ function FinishDialog({
   const [intensity, setIntensity] = useState<Intensity>("moderate");
   const [notes, setNotes] = useState("");
   const [updateRoutine, setUpdateRoutine] = useState(true);
+  const [routineAction, setRoutineAction] = useState<"keep" | "update" | "new">("keep");
+  const [newRoutineName, setNewRoutineName] = useState(`${routineName} v2`);
   const [pending, start] = useTransition();
   const kcal = estimateKcal(metFor("gym", intensity), bodyWeightKg, minutes);
 
@@ -319,7 +332,31 @@ function FinishDialog({
           <label className={label} htmlFor="notes">Notas</label>
           <textarea id="notes" className={input + " h-20 py-2"} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
-        {hasRoutine && (
+        {hasRoutine && hasExerciseChanges && (
+          <div className="space-y-2 rounded-xl border border-line p-3">
+            <p className="text-sm font-medium">Los ejercicios han cambiado respecto a la rutina</p>
+            {(["keep", "update", "new"] as const).map((opt) => (
+              <label key={opt} className="flex cursor-pointer items-start gap-2 text-sm">
+                <input type="radio" name="routineAction" value={opt} checked={routineAction === opt} onChange={() => setRoutineAction(opt)} className="mt-0.5" />
+                <span>
+                  {opt === "keep" && "Dejar la rutina como estaba"}
+                  {opt === "update" && `Actualizar "${routineName}" con los de hoy`}
+                  {opt === "new" && "Crear nueva rutina"}
+                </span>
+              </label>
+            ))}
+            {routineAction === "new" && (
+              <input
+                className={cx(input, "mt-1")}
+                value={newRoutineName}
+                onChange={(e) => setNewRoutineName(e.target.value)}
+                placeholder="Nombre de la nueva rutina"
+                autoFocus
+              />
+            )}
+          </div>
+        )}
+        {hasRoutine && !hasExerciseChanges && (
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" checked={updateRoutine} onChange={(e) => setUpdateRoutine(e.target.checked)} className="mt-1" />
             <span>Guardar los pesos y reps de hoy en la rutina (la próxima vez empiezas desde aquí)</span>
@@ -332,7 +369,9 @@ function FinishDialog({
             className="flex-[2]"
             disabled={pending}
             onClick={() => {
-              const opts: QueuedFinish = { durationMin: minutes, intensity, notes, updateRoutine };
+              const opts: QueuedFinish = hasExerciseChanges && hasRoutine
+                ? { durationMin: minutes, intensity, notes, routineAction: routineAction === "keep" ? undefined : routineAction, newRoutineName: routineAction === "new" ? newRoutineName : undefined }
+                : { durationMin: minutes, intensity, notes, updateRoutine };
               queueFinish(sessionId, opts);
               if (!navigator.onLine) return onQueued();
               start(async () => {

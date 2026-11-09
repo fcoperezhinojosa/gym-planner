@@ -16,6 +16,7 @@ export type CurrentUser = {
   birthYear: number | null;
   heightCm: number | null;
   dailyIntakeKcal: number | null;
+  defaultRestSeconds: number;
 };
 
 async function getUserById(uid: number): Promise<CurrentUser | null> {
@@ -33,6 +34,7 @@ async function getUserById(uid: number): Promise<CurrentUser | null> {
       birthYear: schema.users.birthYear,
       heightCm: schema.users.heightCm,
       dailyIntakeKcal: schema.users.dailyIntakeKcal,
+      defaultRestSeconds: schema.users.defaultRestSeconds,
     })
     .from(schema.users)
     .where(eq(schema.users.id, uid));

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { SessionRunner } from "@/components/SessionRunner";
 import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getSessionDetail, lastSetsByExercise, listExercisesLite } from "@/lib/data";
+import { getDb, schema } from "@/db";
 
 export const metadata: Metadata = { title: "Entrenamiento" };
 
@@ -15,17 +17,22 @@ export default async function SessionPage({ params }: PageProps<"/sesion/[id]">)
   if (!Number.isInteger(sessionId)) notFound();
   const session = await getSessionDetail(user.id, sessionId);
   if (!session) notFound();
-  const [exercises, last] = await Promise.all([
+  const db = await getDb();
+  const [exercises, last, routineRows] = await Promise.all([
     listExercisesLite(user.id),
     lastSetsByExercise(user.id, session.exercises.map((e) => e.exerciseId), session.id),
+    session.routineId
+      ? db.select({ exerciseId: schema.routineExercises.exerciseId }).from(schema.routineExercises).where(eq(schema.routineExercises.routineId, session.routineId)).orderBy(asc(schema.routineExercises.position))
+      : Promise.resolve(null),
   ]);
   const previous = Object.fromEntries(last);
+  const routineExerciseIds = routineRows ? routineRows.map((r) => r.exerciseId) : null;
   const [y, m, d] = session.date.split("-");
   return (
     <div>
       <Link href={session.endedAt ? `/calendario?d=${session.date}` : "/"} className="mb-3 inline-block text-sm text-muted hover:text-fg">←  Volver</Link>
       <PageHeader title={session.name} subtitle={`${d}/${m}/${y}${session.endedAt ? " · terminado" : " · en curso"}`} />
-      <SessionRunner key={`${session.id}-${session.endedAt ? 1 : 0}`} session={session} exercises={exercises} previous={previous} bodyWeightKg={user.bodyWeightKg} />
+      <SessionRunner key={`${session.id}-${session.endedAt ? 1 : 0}`} session={session} exercises={exercises} previous={previous} bodyWeightKg={user.bodyWeightKg} routineExerciseIds={routineExerciseIds} />
     </div>
   );
 }

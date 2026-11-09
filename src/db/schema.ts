@@ -23,6 +23,8 @@ export const users = pgTable("users", {
   heightCm: real("height_cm"),
   /** kcal que come habitualmente al día; se usa si un día no tiene registro propio. */
   dailyIntakeKcal: integer("daily_intake_kcal"),
+  /** Segundos de descanso por defecto al añadir ejercicios nuevos. */
+  defaultRestSeconds: integer("default_rest_seconds").notNull().default(60),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -63,7 +65,7 @@ export const routineExercises = pgTable("routine_exercises", {
   routineId: integer("routine_id").notNull().references(() => routines.id, { onDelete: "cascade" }),
   exerciseId: text("exercise_id").notNull().references(() => exercises.id),
   position: integer("position").notNull(),
-  restSeconds: integer("rest_seconds").notNull().default(90),
+  restSeconds: integer("rest_seconds").notNull().default(60),
   notes: text("notes"),
 });
 
@@ -147,7 +149,7 @@ export const sessionExercises = pgTable("session_exercises", {
   sessionId: integer("session_id").notNull().references(() => workoutSessions.id, { onDelete: "cascade" }),
   exerciseId: text("exercise_id").notNull().references(() => exercises.id),
   position: integer("position").notNull(),
-  restSeconds: integer("rest_seconds").notNull().default(90),
+  restSeconds: integer("rest_seconds").notNull().default(60),
 });
 
 export const sessionSets = pgTable("session_sets", {

@@ -55,6 +55,7 @@ export default async function ProfilePage() {
           birthYear={user.birthYear}
           heightCm={user.heightCm}
           dailyIntakeKcal={user.dailyIntakeKcal}
+          defaultRestSeconds={user.defaultRestSeconds}
         />
       </Card>
       <Card className="p-4 md:hidden">

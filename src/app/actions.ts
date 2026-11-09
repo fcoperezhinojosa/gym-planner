@@ -77,8 +77,9 @@ export async function updateProfile(_: FormState, form: FormData): Promise<FormS
   const birthYear = optInt("birthYear", thisYear - 100, thisYear - 12);
   const heightCm = optInt("heightCm", 120, 230);
   const dailyIntakeKcal = optInt("dailyIntakeKcal", 800, 6000);
+  const defaultRestSeconds = clamp(Math.round(num(form.get("defaultRestSeconds"), 60)), 0, 600);
   const db = await getDb();
-  await db.update(s.users).set({ name, bodyWeightKg, sex, birthYear, heightCm, dailyIntakeKcal }).where(eq(s.users.id, user.id));
+  await db.update(s.users).set({ name, bodyWeightKg, sex, birthYear, heightCm, dailyIntakeKcal, defaultRestSeconds }).where(eq(s.users.id, user.id));
   updateTag(`user-profile:${user.id}`);
   invalidateUser(user.id);
   refresh();
@@ -201,7 +202,7 @@ export async function addExercisesToRoutine(routineId: number, exerciseIds: stri
   let pos = (m ?? -1) + 1;
   const last = await lastSetsByExercise(user.id, exerciseIds);
   for (const exerciseId of exerciseIds.slice(0, 30)) {
-    const [re] = await db.insert(s.routineExercises).values({ routineId, exerciseId, position: pos++ }).returning({ id: s.routineExercises.id });
+    const [re] = await db.insert(s.routineExercises).values({ routineId, exerciseId, position: pos++, restSeconds: user.defaultRestSeconds }).returning({ id: s.routineExercises.id });
     const prev = last.get(exerciseId)?.sets;
     const sets = prev?.length ? prev.map((x) => ({ reps: x.reps, weightKg: x.weightKg })) : [0, 1, 2].map(() => ({ reps: 10, weightKg: 0 }));
     await db.insert(s.routineSets).values(sets.map((x, i) => ({ routineExerciseId: re.id, position: i, reps: x.reps, weightKg: x.weightKg })));
@@ -373,7 +374,7 @@ export async function addExercisesToSession(sessionId: number, exerciseIds: stri
   let pos = (m ?? -1) + 1;
   const last = await lastSetsByExercise(user.id, exerciseIds, sessionId);
   for (const exerciseId of exerciseIds.slice(0, 30)) {
-    const [se] = await db.insert(s.sessionExercises).values({ sessionId, exerciseId, position: pos++ }).returning({ id: s.sessionExercises.id });
+    const [se] = await db.insert(s.sessionExercises).values({ sessionId, exerciseId, position: pos++, restSeconds: user.defaultRestSeconds }).returning({ id: s.sessionExercises.id });
     const prev = last.get(exerciseId)?.sets;
     const sets = prev?.length ? prev : [0, 1, 2].map(() => ({ reps: 10, weightKg: 0 }));
     await db.insert(s.sessionSets).values(sets.map((x, i) => ({ sessionExerciseId: se.id, position: i, reps: x.reps, weightKg: x.weightKg })));
@@ -401,7 +402,7 @@ export async function saveSessionSets(seId: number, sets: SetInput[]) {
   invalidateUser(user.id);
 }
 
-export async function finishWorkout(sessionId: number, opts: { durationMin: number; intensity: Intensity; notes?: string; updateRoutine?: boolean }) {
+export async function finishWorkout(sessionId: number, opts: { durationMin: number; intensity: Intensity; notes?: string; updateRoutine?: boolean; routineAction?: "update" | "new"; newRoutineName?: string }) {
   const user = await requireUser();
   const session = await ownSession(user.id, sessionId);
   const durationMin = clamp(Math.round(opts.durationMin) || 0, 1, 600);
@@ -413,8 +414,31 @@ export async function finishWorkout(sessionId: number, opts: { durationMin: numb
     .set({ endedAt: new Date(), durationMin, intensity, kcal, notes: opts.notes?.slice(0, 2000) || null })
     .where(eq(s.workoutSessions.id, sessionId));
 
-  // Opcional: guardar los pesos/reps de hoy como nueva plantilla de la rutina.
-  if (opts.updateRoutine && session.routineId) {
+  if (opts.routineAction === "update" && session.routineId) {
+    // Reemplaza la rutina entera (ejercicios + sets) con lo de esta sesión.
+    const sessionExs = await db.select().from(s.sessionExercises).where(eq(s.sessionExercises.sessionId, sessionId)).orderBy(asc(s.sessionExercises.position));
+    await db.delete(s.routineExercises).where(eq(s.routineExercises.routineId, session.routineId));
+    for (let i = 0; i < sessionExs.length; i++) {
+      const se = sessionExs[i];
+      const [re] = await db.insert(s.routineExercises).values({ routineId: session.routineId, exerciseId: se.exerciseId, position: i, restSeconds: se.restSeconds }).returning({ id: s.routineExercises.id });
+      const sets = await db.select().from(s.sessionSets).where(eq(s.sessionSets.sessionExerciseId, se.id)).orderBy(asc(s.sessionSets.position));
+      if (sets.length)
+        await db.insert(s.routineSets).values(sets.map((x, k) => ({ routineExerciseId: re.id, position: k, reps: x.reps, weightKg: x.weightKg, type: x.type })));
+    }
+  } else if (opts.routineAction === "new" && opts.newRoutineName?.trim()) {
+    // Crea una rutina nueva a partir de los ejercicios de esta sesión.
+    const srcRoutine = session.routineId ? (await db.select().from(s.routines).where(eq(s.routines.id, session.routineId)))[0] : null;
+    const [newRoutine] = await db.insert(s.routines).values({ userId: user.id, name: opts.newRoutineName.trim().slice(0, 100), ...(srcRoutine?.color ? { color: srcRoutine.color } : {}) }).returning({ id: s.routines.id });
+    const sessionExs = await db.select().from(s.sessionExercises).where(eq(s.sessionExercises.sessionId, sessionId)).orderBy(asc(s.sessionExercises.position));
+    for (let i = 0; i < sessionExs.length; i++) {
+      const se = sessionExs[i];
+      const [re] = await db.insert(s.routineExercises).values({ routineId: newRoutine.id, exerciseId: se.exerciseId, position: i, restSeconds: se.restSeconds }).returning({ id: s.routineExercises.id });
+      const sets = await db.select().from(s.sessionSets).where(eq(s.sessionSets.sessionExerciseId, se.id)).orderBy(asc(s.sessionSets.position));
+      if (sets.length)
+        await db.insert(s.routineSets).values(sets.map((x, k) => ({ routineExerciseId: re.id, position: k, reps: x.reps, weightKg: x.weightKg, type: x.type })));
+    }
+  } else if (opts.updateRoutine && session.routineId) {
+    // Comportamiento previo: solo actualiza pesos/reps de los ejercicios que ya estaban en la rutina.
     const detail = await db.select().from(s.sessionExercises).where(eq(s.sessionExercises.sessionId, sessionId));
     const res = await db.select().from(s.routineExercises).where(eq(s.routineExercises.routineId, session.routineId));
     for (const se of detail) {

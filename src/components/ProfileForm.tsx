@@ -11,6 +11,7 @@ export function ProfileForm({
   birthYear,
   heightCm,
   dailyIntakeKcal,
+  defaultRestSeconds,
 }: {
   name: string;
   weight: number;
@@ -18,11 +19,12 @@ export function ProfileForm({
   birthYear: number | null;
   heightCm: number | null;
   dailyIntakeKcal: number | null;
+  defaultRestSeconds: number;
 }) {
   const [state, action, pending] = useActionState(updateProfile, undefined);
   return (
     // key: tras guardar, React resetea el form a los defaultValue; así se remonta con los valores nuevos.
-    <form key={`${sex}|${birthYear}|${heightCm}|${dailyIntakeKcal}|${weight}`} action={action} className="space-y-3">
+    <form key={`${sex}|${birthYear}|${heightCm}|${dailyIntakeKcal}|${weight}|${defaultRestSeconds}`} action={action} className="space-y-3">
       <div>
         <label className={label} htmlFor="name">Nombre</label>
         <input id="name" name="name" defaultValue={name} className={input} />
@@ -55,6 +57,11 @@ export function ProfileForm({
         <label className={label} htmlFor="dailyIntakeKcal">Lo que comes habitualmente (kcal/día)</label>
         <input id="dailyIntakeKcal" name="dailyIntakeKcal" type="number" inputMode="numeric" placeholder="2200" defaultValue={dailyIntakeKcal ?? ""} className={input} />
         <p className="mt-1 text-xs text-muted">Opcional. Se usa los días que no registras lo que has comido.</p>
+      </div>
+      <div>
+        <label className={label} htmlFor="defaultRestSeconds">Descanso entre series (segundos)</label>
+        <input id="defaultRestSeconds" name="defaultRestSeconds" type="number" inputMode="numeric" min="0" max="600" defaultValue={defaultRestSeconds} className={input} />
+        <p className="mt-1 text-xs text-muted">Se aplica al añadir ejercicios nuevos a una rutina o sesión.</p>
       </div>
       {state?.error && <p className="text-sm text-danger">{state.error}</p>}
       {state?.ok && <p className="text-sm text-good">Guardado ✓</p>}
