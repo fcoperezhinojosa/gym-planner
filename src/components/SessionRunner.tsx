@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { addExercisesToSession, deleteWorkout, finishWorkout, removeSessionExercise, saveSessionSets } from "@/app/actions";
+import { addExercisesToSession, createRoutineFromSession, deleteWorkout, finishWorkout, removeSessionExercise, saveSessionSets, updateRoutineFromSession } from "@/app/actions";
 import type { ExerciseLite, SessionDetail } from "@/lib/data";
 import { INTENSITIES, estimateKcal, metFor, type Intensity } from "@/lib/kcal";
 import { equipmentLabel, muscleLabel } from "@/lib/labels";
@@ -144,6 +144,10 @@ export function SessionRunner({
         </Card>
       )}
 
+      {finished && session.routineId && (
+        <SaveRoutinePanel sessionId={session.id} routineName={session.name} hasChanges={hasExerciseChanges} />
+      )}
+
       {session.exercises.map((ex) => (
         <SessionExerciseCard
           key={ex.id}
@@ -272,6 +276,68 @@ function SessionExerciseCard({
           schedule(next);
         }}
       />
+    </Card>
+  );
+}
+
+function SaveRoutinePanel({ sessionId, routineName, hasChanges }: { sessionId: number; routineName: string; hasChanges: boolean }) {
+  const [mode, setMode] = useState<"idle" | "new">("idle");
+  const [newName, setNewName] = useState(`${routineName} v2`);
+  const [done, setDone] = useState<"updated" | "created" | null>(null);
+  const [pending, start] = useTransition();
+
+  if (done) {
+    return (
+      <Card className="p-4 text-sm text-good">
+        {done === "updated" ? `Rutina "${routineName}" actualizada ✓` : `Nueva rutina "${newName}" creada ✓`}
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="space-y-3 p-4">
+      <p className="text-sm font-medium">
+        {hasChanges ? "Los ejercicios han cambiado respecto a la rutina" : "Guardar en la rutina"}
+      </p>
+      {mode === "idle" ? (
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            className="flex-1 text-sm"
+            disabled={pending}
+            onClick={() => start(async () => { await updateRoutineFromSession(sessionId); setDone("updated"); })}
+          >
+            Actualizar "{routineName}"
+          </Button>
+          <Button
+            variant="secondary"
+            className="flex-1 text-sm"
+            disabled={pending}
+            onClick={() => setMode("new")}
+          >
+            Crear nueva rutina
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <input
+            className={input}
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1 text-sm" onClick={() => setMode("idle")}>Cancelar</Button>
+            <Button
+              className="flex-1 text-sm"
+              disabled={pending || !newName.trim()}
+              onClick={() => start(async () => { await createRoutineFromSession(sessionId, newName); setDone("created"); })}
+            >
+              Guardar
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

@@ -454,6 +454,42 @@ export async function finishWorkout(sessionId: number, opts: { durationMin: numb
   redirect(`/sesion/${sessionId}`);
 }
 
+export async function updateRoutineFromSession(sessionId: number): Promise<void> {
+  const user = await requireUser();
+  const session = await ownSession(user.id, sessionId);
+  if (!session.routineId) throw new Error("La sesión no tiene rutina asociada");
+  const db = await getDb();
+  const sessionExs = await db.select().from(s.sessionExercises).where(eq(s.sessionExercises.sessionId, sessionId)).orderBy(asc(s.sessionExercises.position));
+  await db.delete(s.routineExercises).where(eq(s.routineExercises.routineId, session.routineId));
+  for (let i = 0; i < sessionExs.length; i++) {
+    const se = sessionExs[i];
+    const [re] = await db.insert(s.routineExercises).values({ routineId: session.routineId, exerciseId: se.exerciseId, position: i, restSeconds: se.restSeconds }).returning({ id: s.routineExercises.id });
+    const sets = await db.select().from(s.sessionSets).where(eq(s.sessionSets.sessionExerciseId, se.id)).orderBy(asc(s.sessionSets.position));
+    if (sets.length)
+      await db.insert(s.routineSets).values(sets.map((x, k) => ({ routineExerciseId: re.id, position: k, reps: x.reps, weightKg: x.weightKg, type: x.type })));
+  }
+  invalidateUser(user.id);
+  refresh();
+}
+
+export async function createRoutineFromSession(sessionId: number, name: string): Promise<void> {
+  const user = await requireUser();
+  const session = await ownSession(user.id, sessionId);
+  const db = await getDb();
+  const srcRoutine = session.routineId ? (await db.select().from(s.routines).where(eq(s.routines.id, session.routineId)))[0] : null;
+  const [newRoutine] = await db.insert(s.routines).values({ userId: user.id, name: name.trim().slice(0, 100), ...(srcRoutine?.color ? { color: srcRoutine.color } : {}) }).returning({ id: s.routines.id });
+  const sessionExs = await db.select().from(s.sessionExercises).where(eq(s.sessionExercises.sessionId, sessionId)).orderBy(asc(s.sessionExercises.position));
+  for (let i = 0; i < sessionExs.length; i++) {
+    const se = sessionExs[i];
+    const [re] = await db.insert(s.routineExercises).values({ routineId: newRoutine.id, exerciseId: se.exerciseId, position: i, restSeconds: se.restSeconds }).returning({ id: s.routineExercises.id });
+    const sets = await db.select().from(s.sessionSets).where(eq(s.sessionSets.sessionExerciseId, se.id)).orderBy(asc(s.sessionSets.position));
+    if (sets.length)
+      await db.insert(s.routineSets).values(sets.map((x, k) => ({ routineExerciseId: re.id, position: k, reps: x.reps, weightKg: x.weightKg, type: x.type })));
+  }
+  invalidateUser(user.id);
+  refresh();
+}
+
 export async function deleteWorkout(sessionId: number) {
   const user = await requireUser();
   await ownSession(user.id, sessionId);
