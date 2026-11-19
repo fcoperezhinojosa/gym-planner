@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { logActivity } from "@/app/actions";
 import {
@@ -13,6 +13,7 @@ import {
   walkingDurationMin,
   type Intensity,
 } from "@/lib/kcal";
+import { CloseAddActivityContext } from "./AddActivityContext";
 import { toast } from "./Toast";
 import { Button, cx, input, label } from "./ui";
 
@@ -155,6 +156,7 @@ export function ActivityForm({
   defaultType?: string;
 }) {
   const [key, setKey] = useState(0);
+  const close = useContext(CloseAddActivityContext);
   return (
     <ActivityFormInner
       key={key}
@@ -162,7 +164,10 @@ export function ActivityForm({
       bodyWeightKg={bodyWeightKg}
       heightCm={heightCm}
       defaultType={defaultType}
-      onSuccess={() => setKey((k) => k + 1)}
+      onSuccess={() => {
+        setKey((k) => k + 1);
+        close?.();
+      }}
     />
   );
 }
