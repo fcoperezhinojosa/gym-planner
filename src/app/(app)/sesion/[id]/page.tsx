@@ -30,8 +30,12 @@ export default async function SessionPage({ params }: PageProps<"/sesion/[id]">)
   const [y, m, d] = session.date.split("-");
   return (
     <div>
-      <Link href={session.endedAt ? `/calendario?d=${session.date}` : "/"} className="mb-3 inline-block text-sm text-muted hover:text-fg">←  Volver</Link>
-      <PageHeader title={session.name} subtitle={`${d}/${m}/${y}${session.endedAt ? " · terminado" : " · en curso"}`} />
+      {session.endedAt && (
+        <>
+          <Link href={`/calendario?d=${session.date}`} className="mb-3 inline-block text-sm text-muted hover:text-fg">←  Volver</Link>
+          <PageHeader title={session.name} subtitle={`${d}/${m}/${y} · terminado`} />
+        </>
+      )}
       <SessionRunner key={`${session.id}-${session.endedAt ? 1 : 0}`} session={session} exercises={exercises} previous={previous} bodyWeightKg={user.bodyWeightKg} routineExerciseIds={routineExerciseIds} />
     </div>
   );
