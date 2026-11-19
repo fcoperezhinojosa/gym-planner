@@ -10,6 +10,7 @@ import { clearFinish, clearSets, pendingFinish, pendingSets, queueFinish, queueS
 import { ExercisePicker } from "./ExercisePicker";
 import { ExerciseThumb } from "./ExerciseThumb";
 import { SetsEditor, type EditableSet } from "./SetsEditor";
+import { toast } from "./Toast";
 import { Button, Card, cx, input, label } from "./ui";
 import { useDebouncedSave } from "./useDebouncedSave";
 
@@ -191,6 +192,7 @@ export function SessionRunner({
             start(async () => {
               await addExercisesToSession(session.id, ids);
               setPicker(false);
+              toast(ids.length === 1 ? "Ejercicio añadido" : `${ids.length} ejercicios añadidos`);
             })
           }
         />
@@ -305,9 +307,15 @@ function SaveRoutinePanel({ sessionId, routineName, hasChanges }: { sessionId: n
             variant="secondary"
             className="flex-1 text-sm"
             disabled={pending}
-            onClick={() => start(async () => { await updateRoutineFromSession(sessionId); setDone("updated"); })}
+            onClick={() =>
+              start(async () => {
+                await updateRoutineFromSession(sessionId);
+                setDone("updated");
+                toast(`Rutina "${routineName}" actualizada`);
+              })
+            }
           >
-            Actualizar "{routineName}"
+            Actualizar &ldquo;{routineName}&rdquo;
           </Button>
           <Button
             variant="secondary"
@@ -331,7 +339,13 @@ function SaveRoutinePanel({ sessionId, routineName, hasChanges }: { sessionId: n
             <Button
               className="flex-1 text-sm"
               disabled={pending || !newName.trim()}
-              onClick={() => start(async () => { await createRoutineFromSession(sessionId, newName); setDone("created"); })}
+              onClick={() =>
+                start(async () => {
+                  await createRoutineFromSession(sessionId, newName);
+                  setDone("created");
+                  toast(`Nueva rutina "${newName.trim()}" creada`);
+                })
+              }
             >
               Guardar
             </Button>
@@ -518,12 +532,27 @@ function FinishDialog({
               const opts: QueuedFinish = hasExerciseChanges && hasRoutine
                 ? { durationMin: minutes, intensity, notes, routineAction: routineAction === "keep" ? undefined : routineAction, newRoutineName: routineAction === "new" ? newRoutineName : undefined, cardio }
                 : { durationMin: minutes, intensity, notes, updateRoutine, cardio };
+              const msg =
+                hasRoutine && hasExerciseChanges
+                  ? routineAction === "update"
+                    ? `Entreno guardado y rutina "${routineName}" actualizada`
+                    : routineAction === "new" && newRoutineName.trim()
+                      ? `Entreno guardado y rutina "${newRoutineName.trim()}" creada`
+                      : "Entrenamiento guardado"
+                  : hasRoutine && updateRoutine
+                    ? `Entreno y pesos guardados en "${routineName}"`
+                    : "Entrenamiento guardado";
               queueFinish(sessionId, opts);
-              if (!navigator.onLine) return onQueued();
+              if (!navigator.onLine) {
+                toast("Guardado en el móvil (se enviará con señal)");
+                return onQueued();
+              }
               start(async () => {
                 try {
+                  toast(msg);
                   await syncSession(sessionId, exerciseIds);
                 } catch {
+                  toast("Guardado en el móvil (se enviará con señal)");
                   onQueued();
                 }
               });

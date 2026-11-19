@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { logIntake } from "@/app/actions";
 import { aggregateEnergy, energyVerdict, periodStart, type EnergyDay, type Period } from "@/lib/energy";
 import { EnergyChart } from "./Charts";
+import { toast } from "./Toast";
 import { Button, Card, cx, input, label } from "./ui";
 
 const PERIODS: { id: Period; label: string; count: number; unit: string }[] = [
@@ -136,6 +137,9 @@ export function EnergyBalance({
 
 function IntakeForm({ today, current, defaultIntake }: { today: string; current: number | null; defaultIntake: number | null }) {
   const [state, action, pending] = useActionState(logIntake, undefined);
+  useEffect(() => {
+    if (state?.ok) toast("Registro de kcal guardado");
+  }, [state]);
   return (
     <form action={action} className="grid grid-cols-2 items-end gap-2 border-t border-line pt-4 sm:grid-cols-[1fr_1fr_auto]">
       <div>

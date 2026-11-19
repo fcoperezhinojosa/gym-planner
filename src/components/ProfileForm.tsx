@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { updateProfile } from "@/app/actions";
+import { toast } from "./Toast";
 import { Button, input, label } from "./ui";
 
 export function ProfileForm({
@@ -22,6 +23,9 @@ export function ProfileForm({
   defaultRestSeconds: number;
 }) {
   const [state, action, pending] = useActionState(updateProfile, undefined);
+  useEffect(() => {
+    if (state?.ok) toast("Perfil guardado");
+  }, [state]);
   return (
     // key: tras guardar, React resetea el form a los defaultValue; así se remonta con los valores nuevos.
     <form key={`${sex}|${birthYear}|${heightCm}|${dailyIntakeKcal}|${weight}|${defaultRestSeconds}`} action={action} className="space-y-3">

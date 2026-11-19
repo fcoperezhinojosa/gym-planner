@@ -17,6 +17,7 @@ import { equipmentLabel, muscleLabel } from "@/lib/labels";
 import { ExercisePicker } from "./ExercisePicker";
 import { ExerciseThumb } from "./ExerciseThumb";
 import { SetsEditor, type EditableSet } from "./SetsEditor";
+import { toast } from "./Toast";
 import { Button, Card, input } from "./ui";
 import { useDebouncedSave } from "./useDebouncedSave";
 
@@ -35,7 +36,13 @@ export function RoutineEditor({ routine, exercises }: { routine: RoutineDetail; 
           value={name}
           aria-label="Nombre de la rutina"
           onChange={(e) => setName(e.target.value)}
-          onBlur={() => name !== routine.name && start(() => updateRoutine(routine.id, { name }))}
+          onBlur={() =>
+            name !== routine.name &&
+            start(async () => {
+              await updateRoutine(routine.id, { name });
+              toast("Nombre de rutina guardado");
+            })
+          }
         />
         <div className="flex flex-wrap items-center gap-2">
           {COLORS.map((c) => (
@@ -88,6 +95,7 @@ export function RoutineEditor({ routine, exercises }: { routine: RoutineDetail; 
             start(async () => {
               await addExercisesToRoutine(routine.id, ids);
               setPicker(false);
+              toast(ids.length === 1 ? "Ejercicio añadido a la rutina" : `${ids.length} ejercicios añadidos a la rutina`);
             })
           }
         />

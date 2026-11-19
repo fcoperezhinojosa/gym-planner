@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { setOverride } from "@/app/actions";
 import { MAX_EXTRA_ACTIVITIES, type DaySlot } from "@/lib/schedule";
 import { SlotEditor, type RoutineOption } from "./SlotEditor";
+import { toast } from "./Toast";
 import { Button } from "./ui";
 
 /** Abre el editor con una actividad más ya añadida (en descanso, pasa a ser la principal). */
@@ -52,12 +53,22 @@ export function DayOverride({
         routines={routines}
         pending={pending}
         onCancel={() => setMode("closed")}
-        onReset={isOverride ? () => start(async () => { await setOverride(date, null); setMode("closed"); }) : undefined}
+        onReset={
+          isOverride
+            ? () =>
+                start(async () => {
+                  await setOverride(date, null);
+                  setMode("closed");
+                  toast("Vuelto al plan original");
+                })
+            : undefined
+        }
         resetLabel="Volver al plan"
         onSave={(slot) =>
           start(async () => {
             await setOverride(date, slot);
             setMode("closed");
+            toast("Cambios del día guardados");
           })
         }
       />

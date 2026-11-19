@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { logActivity } from "@/app/actions";
 import { ACTIVITY_TYPES, INTENSITIES, estimateKcal, metFor, type Intensity } from "@/lib/kcal";
+import { toast } from "./Toast";
 import { Button, input, label } from "./ui";
 
 function ActivityFormInner({
@@ -26,6 +27,7 @@ function ActivityFormInner({
 
   useEffect(() => {
     if (state?.ok) {
+      toast("Actividad registrada");
       router.refresh();
       onSuccess();
     }

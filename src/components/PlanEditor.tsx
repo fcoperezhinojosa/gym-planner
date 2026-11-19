@@ -6,6 +6,7 @@ import { WEEKDAYS } from "@/lib/labels";
 import { weekLetter, type DaySlot } from "@/lib/schedule";
 import { dayEmoji, dayTitle, slotColor } from "./DayBadge";
 import { SlotEditor, type RoutineOption } from "./SlotEditor";
+import { toast } from "./Toast";
 import { Button, Card, cx, input, label } from "./ui";
 
 type Plan = {
@@ -22,7 +23,15 @@ export function PlanEditor({ plan, routines, today, currentWeek }: { plan: Plan;
   const [week, setWeek] = useState(currentWeek ?? 0);
 
   const settings = (
-    <form action={(f) => start(() => savePlan(f))} className="grid gap-3 sm:grid-cols-[1fr_10rem_8rem_auto] sm:items-end">
+    <form
+      action={(f) =>
+        start(async () => {
+          await savePlan(f);
+          toast("Plan guardado");
+        })
+      }
+      className="grid gap-3 sm:grid-cols-[1fr_10rem_8rem_auto] sm:items-end"
+    >
       <div>
         <label className={label} htmlFor="pname">Nombre</label>
         <input id="pname" name="name" className={input} defaultValue={plan?.name ?? "Mi plan"} />
@@ -100,6 +109,7 @@ export function PlanEditor({ plan, routines, today, currentWeek }: { plan: Plan;
                         start(async () => {
                           await setPlanDay(w, d, v);
                           setEditing(null);
+                          toast("Día actualizado");
                         })
                       }
                     />
