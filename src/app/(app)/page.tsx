@@ -108,13 +108,13 @@ export default async function TodayPage() {
             {day.planned.kind === "activity" && day.activities.length === 0 ? (
               <>
                 <p className="mb-3 text-sm font-semibold">Registrar {activityLabel(day.planned.activityType).toLowerCase()}</p>
-                <ActivityForm today={today} bodyWeightKg={user.bodyWeightKg} defaultType={day.planned.activityType ?? "other"} />
+                <ActivityForm today={today} bodyWeightKg={user.bodyWeightKg} heightCm={user.heightCm} defaultType={day.planned.activityType ?? "other"} />
               </>
             ) : (
               <details>
                 <summary className="cursor-pointer select-none text-sm font-medium text-muted hover:text-fg">+ Añadir actividad</summary>
                 <div className="mt-3">
-                  <ActivityForm today={today} bodyWeightKg={user.bodyWeightKg} defaultType={day.planned.activityType ?? "other"} />
+                  <ActivityForm today={today} bodyWeightKg={user.bodyWeightKg} heightCm={user.heightCm} defaultType={day.planned.activityType ?? "other"} />
                 </div>
               </details>
             )}

@@ -37,6 +37,36 @@ export function estimateKcal(met: number, bodyWeightKg: number, durationMin: num
   return Math.round(met * bodyWeightKg * (durationMin / 60));
 }
 
+/** Velocidad orientativa al caminar (km/h) según intensidad. */
+export const WALKING_SPEED_KMH: Record<Intensity, number> = {
+  light: 4,
+  moderate: 5,
+  vigorous: 6.4,
+};
+
+/** Zancada media en metros (~41,5 % de la altura, o 0,75 m si no se conoce). */
+export function strideLengthMeters(heightCm?: number | null): number {
+  if (heightCm && heightCm > 0) return (heightCm * 0.415) / 100;
+  return 0.75;
+}
+
+export function stepsToKm(steps: number, heightCm?: number | null): number {
+  if (!(steps > 0)) return 0;
+  return (steps * strideLengthMeters(heightCm)) / 1000;
+}
+
+export function walkingDurationMin(km: number, intensity: Intensity): number {
+  if (!(km > 0)) return 0;
+  const speed = WALKING_SPEED_KMH[intensity] ?? WALKING_SPEED_KMH.moderate;
+  return Math.max(1, Math.round((km / speed) * 60));
+}
+
+export function estimateWalkingKcalFromKm(km: number, bodyWeightKg: number, intensity: Intensity): number {
+  if (!(km > 0) || !(bodyWeightKg > 0)) return 0;
+  const speed = WALKING_SPEED_KMH[intensity] ?? WALKING_SPEED_KMH.moderate;
+  return Math.round(metFor("walking", intensity) * bodyWeightKg * (km / speed));
+}
+
 export function activityLabel(type: string | null | undefined) {
   if (!type) return "Actividad";
   return ACTIVITY_TYPES[type]?.label ?? type;

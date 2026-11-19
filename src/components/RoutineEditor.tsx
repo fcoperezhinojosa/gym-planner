@@ -124,7 +124,9 @@ function RoutineExerciseCard({
   return (
     <Card className="p-4">
       <div className="mb-3 flex items-start gap-3">
-        <ExerciseThumb image={ex.image} muscle={ex.primaryMuscle} />
+        <Link href={`/ejercicios/${encodeURIComponent(ex.exerciseId)}`} className="shrink-0" aria-label={`Ver detalle de ${ex.name}`}>
+          <ExerciseThumb image={ex.image} muscle={ex.primaryMuscle} />
+        </Link>
         <div className="min-w-0 flex-1">
           <Link href={`/ejercicios/${encodeURIComponent(ex.exerciseId)}`} className="block font-semibold leading-tight hover:text-accent">
             {ex.name}

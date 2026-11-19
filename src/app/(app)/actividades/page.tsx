@@ -18,7 +18,7 @@ export default async function ActivitiesPage() {
     <div className="space-y-4">
       <PageHeader title="Actividades" subtitle="Gimnasio, pádel, caminar, elíptica… todo suma a tus kcal gastadas." />
       <Card className="p-4">
-        <ActivityForm today={todayISO()} bodyWeightKg={user.bodyWeightKg} />
+        <ActivityForm today={todayISO()} bodyWeightKg={user.bodyWeightKg} heightCm={user.heightCm} />
       </Card>
       <ul className="space-y-2">
         {list.map((a) => (

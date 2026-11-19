@@ -3,27 +3,58 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { logActivity } from "@/app/actions";
-import { ACTIVITY_TYPES, INTENSITIES, estimateKcal, metFor, type Intensity } from "@/lib/kcal";
+import {
+  ACTIVITY_TYPES,
+  INTENSITIES,
+  estimateKcal,
+  estimateWalkingKcalFromKm,
+  metFor,
+  stepsToKm,
+  walkingDurationMin,
+  type Intensity,
+} from "@/lib/kcal";
 import { toast } from "./Toast";
-import { Button, input, label } from "./ui";
+import { Button, cx, input, label } from "./ui";
+
+type WalkingMeasure = "minutes" | "km" | "steps";
+
+const WALKING_MEASURES: { id: WalkingMeasure; label: string }[] = [
+  { id: "minutes", label: "Minutos" },
+  { id: "km", label: "Km" },
+  { id: "steps", label: "Pasos" },
+];
 
 function ActivityFormInner({
   today,
   bodyWeightKg,
+  heightCm = null,
   defaultType = "other",
   onSuccess,
 }: {
   today: string;
   bodyWeightKg: number;
+  heightCm?: number | null;
   defaultType?: string;
   onSuccess: () => void;
 }) {
   const [state, action, pending] = useActionState(logActivity, undefined);
   const [type, setType] = useState(defaultType);
+  const [measure, setMeasure] = useState<WalkingMeasure>("minutes");
   const [minutes, setMinutes] = useState(45);
+  const [distanceKm, setDistanceKm] = useState(5);
+  const [steps, setSteps] = useState(8000);
   const [intensity, setIntensity] = useState<Intensity>("moderate");
   const router = useRouter();
-  const kcal = estimateKcal(metFor(type, intensity), bodyWeightKg, minutes);
+
+  const isWalking = type === "walking";
+  const activeMeasure: WalkingMeasure = isWalking ? measure : "minutes";
+
+  const derivedKm = activeMeasure === "steps" ? stepsToKm(steps, heightCm) : distanceKm;
+  const estMinutes = activeMeasure === "minutes" ? minutes : walkingDurationMin(derivedKm, intensity);
+  const kcal =
+    activeMeasure === "minutes"
+      ? estimateKcal(metFor(type, intensity), bodyWeightKg, minutes)
+      : estimateWalkingKcalFromKm(derivedKm, bodyWeightKg, intensity);
 
   useEffect(() => {
     if (state?.ok) {
@@ -36,6 +67,7 @@ function ActivityFormInner({
 
   return (
     <form action={action} className="grid gap-3 sm:grid-cols-2">
+      <input type="hidden" name="measure" value={activeMeasure} />
       <div>
         <label className={label} htmlFor="type">Actividad</label>
         <select id="type" name="type" className={input} value={type} onChange={(e) => setType(e.target.value)}>
@@ -48,10 +80,44 @@ function ActivityFormInner({
         <label className={label} htmlFor="date">Fecha</label>
         <input id="date" name="date" type="date" className={input} defaultValue={today} />
       </div>
-      <div>
-        <label className={label} htmlFor="durationMin">Duración (min)</label>
-        <input id="durationMin" name="durationMin" type="number" min={1} className={input} value={minutes} onChange={(e) => setMinutes(Number(e.target.value) || 0)} />
-      </div>
+      {isWalking && (
+        <div className="sm:col-span-2">
+          <span className={label}>Medir por</span>
+          <div className="grid grid-cols-3 gap-2">
+            {WALKING_MEASURES.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setMeasure(m.id)}
+                className={cx(
+                  "h-9 rounded-xl border text-xs font-medium",
+                  measure === m.id ? "border-accent bg-accent-soft text-accent" : "border-line",
+                )}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {activeMeasure === "minutes" && (
+        <div>
+          <label className={label} htmlFor="durationMin">Duración (min)</label>
+          <input id="durationMin" name="durationMin" type="number" min={1} className={input} value={minutes} onChange={(e) => setMinutes(Number(e.target.value) || 0)} />
+        </div>
+      )}
+      {activeMeasure === "km" && (
+        <div>
+          <label className={label} htmlFor="distanceKm">Distancia (km)</label>
+          <input id="distanceKm" name="distanceKm" type="number" step="0.1" min={0.1} className={input} value={distanceKm} onChange={(e) => setDistanceKm(Number(e.target.value) || 0)} />
+        </div>
+      )}
+      {activeMeasure === "steps" && (
+        <div>
+          <label className={label} htmlFor="steps">Pasos</label>
+          <input id="steps" name="steps" type="number" step={100} min={1} className={input} value={steps} onChange={(e) => setSteps(Number(e.target.value) || 0)} />
+        </div>
+      )}
       <div>
         <label className={label} htmlFor="intensity">Intensidad</label>
         <select id="intensity" name="intensity" className={input} value={intensity} onChange={(e) => setIntensity(e.target.value as Intensity)}>
@@ -65,7 +131,11 @@ function ActivityFormInner({
         <input id="notes" name="notes" className={input} placeholder="Ej.: partido 2 sets" />
       </div>
       <div className="flex items-center justify-between gap-3 sm:col-span-2">
-        <p className="text-sm text-muted">≈ <strong className="text-fg">{kcal} kcal</strong></p>
+        <p className="text-sm text-muted">
+          ≈ <strong className="text-fg">{kcal} kcal</strong>
+          {activeMeasure === "km" && estMinutes > 0 && <span> ({estMinutes} min est.)</span>}
+          {activeMeasure === "steps" && derivedKm > 0 && <span> ({derivedKm.toFixed(1)} km · {estMinutes} min est.)</span>}
+        </p>
         <Button disabled={pending}>Registrar</Button>
       </div>
       {state?.error && <p className="text-sm text-danger sm:col-span-2">{state.error}</p>}
@@ -73,13 +143,24 @@ function ActivityFormInner({
   );
 }
 
-export function ActivityForm({ today, bodyWeightKg, defaultType = "other" }: { today: string; bodyWeightKg: number; defaultType?: string }) {
+export function ActivityForm({
+  today,
+  bodyWeightKg,
+  heightCm = null,
+  defaultType = "other",
+}: {
+  today: string;
+  bodyWeightKg: number;
+  heightCm?: number | null;
+  defaultType?: string;
+}) {
   const [key, setKey] = useState(0);
   return (
     <ActivityFormInner
       key={key}
       today={today}
       bodyWeightKg={bodyWeightKg}
+      heightCm={heightCm}
       defaultType={defaultType}
       onSuccess={() => setKey((k) => k + 1)}
     />

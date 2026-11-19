@@ -7,7 +7,16 @@ import { redirect } from "next/navigation";
 import { getDb, schema as s } from "@/db";
 import { endSession, requireUser, startSession } from "@/lib/auth";
 import { isValidISODate, todayISO } from "@/lib/dates";
-import { ACTIVITY_TYPES, estimateKcal, isIntensity, metFor, type Intensity } from "@/lib/kcal";
+import {
+  ACTIVITY_TYPES,
+  estimateKcal,
+  estimateWalkingKcalFromKm,
+  isIntensity,
+  metFor,
+  stepsToKm,
+  walkingDurationMin,
+  type Intensity,
+} from "@/lib/kcal";
 import { isSex } from "@/lib/energy";
 import { normalizeSlot } from "@/lib/schedule";
 import { generateToken } from "@/lib/api-tokens";
@@ -532,15 +541,39 @@ export async function logActivity(_: FormState, form: FormData): Promise<FormSta
   const user = await requireUser();
   const type = str(form.get("type"));
   const date = str(form.get("date"));
-  const durationMin = Math.round(num(form.get("durationMin")));
   const intensity = str(form.get("intensity"));
+  const measure = str(form.get("measure")) || "minutes";
+  const userNotes = str(form.get("notes"));
   if (!ACTIVITY_TYPES[type]) return { error: "Elige una actividad" };
   if (!isValidISODate(date)) return { error: "Fecha no válida" };
-  if (durationMin < 1 || durationMin > 600) return { error: "Duración entre 1 y 600 minutos" };
   if (!isIntensity(intensity)) return { error: "Intensidad no válida" };
-  const kcal = estimateKcal(metFor(type, intensity), user.bodyWeightKg, durationMin);
+
+  let durationMin: number;
+  let kcal: number;
+  let autoNote = "";
+
+  if (type === "walking" && measure === "km") {
+    const distanceKm = num(form.get("distanceKm"));
+    if (distanceKm <= 0 || distanceKm > 200) return { error: "Distancia entre 0,1 y 200 km" };
+    durationMin = clamp(walkingDurationMin(distanceKm, intensity), 1, 1440);
+    kcal = estimateWalkingKcalFromKm(distanceKm, user.bodyWeightKg, intensity);
+    autoNote = `${Number(distanceKm.toFixed(2))} km`;
+  } else if (type === "walking" && measure === "steps") {
+    const steps = Math.round(num(form.get("steps")));
+    if (steps < 1 || steps > 200000) return { error: "Pasos entre 1 y 200.000" };
+    const distanceKm = stepsToKm(steps, user.heightCm);
+    durationMin = clamp(walkingDurationMin(distanceKm, intensity), 1, 1440);
+    kcal = estimateWalkingKcalFromKm(distanceKm, user.bodyWeightKg, intensity);
+    autoNote = `${steps.toLocaleString("es-ES")} pasos (~${distanceKm.toFixed(1)} km)`;
+  } else {
+    durationMin = Math.round(num(form.get("durationMin")));
+    if (durationMin < 1 || durationMin > 600) return { error: "Duración entre 1 y 600 minutos" };
+    kcal = estimateKcal(metFor(type, intensity), user.bodyWeightKg, durationMin);
+  }
+
+  const combinedNotes = [autoNote, userNotes].filter(Boolean).join(" · ").slice(0, 500) || null;
   const db = await getDb();
-  await db.insert(s.activities).values({ userId: user.id, type, date, durationMin, intensity, kcal, notes: str(form.get("notes")).slice(0, 500) || null });
+  await db.insert(s.activities).values({ userId: user.id, type, date, durationMin, intensity, kcal, notes: combinedNotes });
   invalidateUser(user.id);
   refresh();
   return { ok: true };

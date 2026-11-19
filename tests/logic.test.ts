@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 import { propagate, applyToAll, nextSet } from "../src/lib/sets";
 import { normalizeSlot, resolveDay, weekIndexFor } from "../src/lib/schedule";
 import { addDays, isoWeekday, startOfWeek, todayISO, daysInMonth, addMonths } from "../src/lib/dates";
-import { ACTIVITY_TYPES, CARDIO_TYPES, estimateKcal, metFor } from "../src/lib/kcal";
+import {
+  ACTIVITY_TYPES,
+  CARDIO_TYPES,
+  estimateKcal,
+  estimateWalkingKcalFromKm,
+  metFor,
+  stepsToKm,
+  walkingDurationMin,
+} from "../src/lib/kcal";
 import { aggregateEnergy, basalKcal, energyVerdict, periodStart } from "../src/lib/energy";
 import { epley1RM, suggestWeight, weekStreak } from "../src/lib/stats";
 
@@ -99,6 +107,14 @@ describe("kcal y stats", () => {
     expect(estimateKcal(metFor("padel", "moderate"), 75, 90)).toBe(731);
     expect(estimateKcal(5, 0, 60)).toBe(0);
     expect(CARDIO_TYPES.every((k) => Boolean(ACTIVITY_TYPES[k]))).toBe(true);
+  });
+  it("caminar por km y pasos", () => {
+    expect(stepsToKm(10000)).toBe(7.5);
+    expect(stepsToKm(10000, 180)).toBeCloseTo(7.47, 2);
+    expect(walkingDurationMin(5, "moderate")).toBe(60);
+    expect(estimateWalkingKcalFromKm(5, 75, "moderate")).toBe(263);
+    expect(estimateWalkingKcalFromKm(stepsToKm(10000), 75, "moderate")).toBe(394);
+    expect(estimateWalkingKcalFromKm(0, 75, "moderate")).toBe(0);
   });
   it("1RM y sugerencias", () => {
     expect(epley1RM(100, 1)).toBe(100);
