@@ -3,6 +3,8 @@ import { startWorkout } from "@/app/actions";
 import { ActivityForm } from "@/components/ActivityForm";
 import { dayEmoji, dayTitle, slotColor } from "@/components/DayBadge";
 import { DayOverride } from "@/components/DayOverride";
+import { DeleteActivityButton } from "@/components/DeleteActivityButton";
+import { DeleteWorkoutButton } from "@/components/DeleteWorkoutButton";
 import { Button, Card, LinkButton, Pill, Stat, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getCalendar, getOpenSession, getRoutine, listRoutineOptions } from "@/lib/data";
@@ -77,18 +79,26 @@ export default async function TodayPage() {
             </ul>
           )}
 
-          {day.sessions.length > 0 && (
+          {(day.sessions.length > 0 || day.activities.length > 0) && (
             <ul className="space-y-1">
               {day.sessions.map((s) => (
-                <li key={s.id}>
-                  <Link href={`/sesion/${s.id}`} className="text-sm text-good">✓ {s.name}{s.finished ? ` · ${s.durationMin} min · ${s.kcal} kcal` : " (en curso)"}</Link>
+                <li key={`s-${s.id}`} className="flex items-center justify-between gap-2 text-sm text-good">
+                  <Link href={`/sesion/${s.id}`} className="min-w-0 flex-1 truncate hover:underline">
+                    ✓ {s.name}{s.finished ? ` · ${s.durationMin} min · ${s.kcal} kcal` : " (en curso)"}
+                  </Link>
+                  <DeleteWorkoutButton id={s.id} label={s.name} />
+                </li>
+              ))}
+              {day.activities.map((a) => (
+                <li key={`a-${a.id}`} className="flex items-center justify-between gap-2 text-sm text-good">
+                  <span className="min-w-0 flex-1 truncate">
+                    ✓ {activityEmoji(a.type)} {activityLabel(a.type)} · {a.durationMin} min · {a.kcal} kcal
+                  </span>
+                  <DeleteActivityButton id={a.id} label={activityLabel(a.type)} />
                 </li>
               ))}
             </ul>
           )}
-          {day.activities.map((a) => (
-            <p key={a.id} className="text-sm text-good">✓ {activityEmoji(a.type)} {activityLabel(a.type)} · {a.durationMin} min · {a.kcal} kcal</p>
-          ))}
 
           <div className="flex flex-wrap items-center gap-2">
             {day.planned.kind === "workout" && routine && !open && (

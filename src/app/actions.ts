@@ -526,12 +526,16 @@ export async function createRoutineFromSession(sessionId: number, name: string):
   refresh();
 }
 
-export async function deleteWorkout(sessionId: number) {
+export async function deleteWorkout(sessionId: number, opts?: { redirectToHome?: boolean }) {
   const user = await requireUser();
   await ownSession(user.id, sessionId);
   const db = await getDb();
   await db.delete(s.workoutSessions).where(eq(s.workoutSessions.id, sessionId));
   invalidateUser(user.id);
+  if (opts?.redirectToHome === false) {
+    refresh();
+    return;
+  }
   redirect("/");
 }
 

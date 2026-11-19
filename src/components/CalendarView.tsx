@@ -6,6 +6,8 @@ import { startWorkout } from "@/app/actions";
 import { ActivityForm } from "@/components/ActivityForm";
 import { dayEmoji, dayEmojis, dayTitle, slotColor } from "@/components/DayBadge";
 import { DayOverride } from "@/components/DayOverride";
+import { DeleteActivityButton } from "@/components/DeleteActivityButton";
+import { DeleteWorkoutButton } from "@/components/DeleteWorkoutButton";
 import type { RoutineOption } from "@/components/SlotEditor";
 import { Button, Card, PageHeader, Pill, cx } from "@/components/ui";
 import type { CalendarDay } from "@/lib/data";
@@ -192,14 +194,20 @@ export function CalendarView({
             </div>
           </div>
           {sel.sessions.map((s) => (
-            <Link key={s.id} href={`/sesion/${s.id}`} className="block rounded-xl bg-card-2 px-3 py-2 text-sm hover:bg-line">
-              🏋️ {s.name} {s.finished ? `· ${s.durationMin} min · ${s.kcal} kcal` : "· en curso"}
-            </Link>
+            <div key={s.id} className="flex items-center gap-1 rounded-xl bg-card-2 pr-1.5 text-sm">
+              <Link href={`/sesion/${s.id}`} className="min-w-0 flex-1 truncate rounded-xl px-3 py-2 hover:bg-line">
+                🏋️ {s.name} {s.finished ? `· ${s.durationMin} min · ${s.kcal} kcal` : "· en curso"}
+              </Link>
+              <DeleteWorkoutButton id={s.id} label={s.name} />
+            </div>
           ))}
           {sel.activities.map((a) => (
-            <p key={a.id} className="rounded-xl bg-card-2 px-3 py-2 text-sm">
-              {activityEmoji(a.type)} {activityLabel(a.type)} · {a.durationMin} min · {a.kcal} kcal
-            </p>
+            <div key={a.id} className="flex items-center gap-1 rounded-xl bg-card-2 pl-3 pr-1.5 text-sm">
+              <span className="min-w-0 flex-1 truncate py-2">
+                {activityEmoji(a.type)} {activityLabel(a.type)} · {a.durationMin} min · {a.kcal} kcal
+              </span>
+              <DeleteActivityButton id={a.id} label={activityLabel(a.type)} />
+            </div>
           ))}
           <div className="flex flex-wrap items-center gap-2">
             {sel.date <= today && (
