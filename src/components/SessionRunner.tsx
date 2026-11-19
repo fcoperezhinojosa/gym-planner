@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { addExercisesToSession, createRoutineFromSession, deleteWorkout, finishWorkout, removeSessionExercise, saveSessionSets, updateRoutineFromSession } from "@/app/actions";
 import type { ExerciseLite, SessionDetail } from "@/lib/data";
-import { INTENSITIES, estimateKcal, metFor, type Intensity } from "@/lib/kcal";
+import { ACTIVITY_TYPES, CARDIO_TYPES, INTENSITIES, estimateKcal, metFor, type Intensity } from "@/lib/kcal";
 import { equipmentLabel, muscleLabel } from "@/lib/labels";
 import { clearFinish, clearSets, pendingFinish, pendingSets, queueFinish, queueSets, type QueuedFinish } from "@/lib/offline-queue";
 import { ExercisePicker } from "./ExercisePicker";
@@ -369,12 +369,18 @@ function FinishDialog({
   const [updateRoutine, setUpdateRoutine] = useState(true);
   const [routineAction, setRoutineAction] = useState<"keep" | "update" | "new">("keep");
   const [newRoutineName, setNewRoutineName] = useState(`${routineName} v2`);
+  const [hasCardio, setHasCardio] = useState(false);
+  const [cardioType, setCardioType] = useState<string>("running");
+  const [cardioMinutes, setCardioMinutes] = useState(20);
+  const [cardioIntensity, setCardioIntensity] = useState<Intensity>("moderate");
   const [pending, start] = useTransition();
-  const kcal = estimateKcal(metFor("gym", intensity), bodyWeightKg, minutes);
+  const gymKcal = estimateKcal(metFor("gym", intensity), bodyWeightKg, minutes);
+  const cardioKcal = hasCardio ? estimateKcal(metFor(cardioType, cardioIntensity), bodyWeightKg, cardioMinutes) : 0;
+  const totalKcal = gymKcal + cardioKcal;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 md:items-center" onClick={onClose}>
-      <div role="dialog" aria-label="Terminar entrenamiento" className="w-full max-w-md space-y-4 rounded-t-3xl bg-bg p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-label="Terminar entrenamiento" className="max-h-[90vh] w-full max-w-md space-y-4 overflow-y-auto rounded-t-3xl bg-bg p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:rounded-3xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-bold">Terminar entrenamiento</h2>
         <div>
           <label className={label} htmlFor="min">Duración (min)</label>
@@ -386,6 +392,7 @@ function FinishDialog({
             {(Object.keys(INTENSITIES) as Intensity[]).map((k) => (
               <button
                 key={k}
+                type="button"
                 onClick={() => setIntensity(k)}
                 className={cx("h-10 rounded-xl border text-sm font-medium", intensity === k ? "border-accent bg-accent-soft text-accent" : "border-line")}
               >
@@ -398,6 +405,75 @@ function FinishDialog({
           <label className={label} htmlFor="notes">Notas</label>
           <textarea id="notes" className={input + " h-20 py-2"} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
+
+        <div className="space-y-3 rounded-xl border border-line p-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium">¿Has hecho o vas a hacer cardio?</span>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => setHasCardio(false)}
+                className={cx("h-8 rounded-lg border px-3 text-xs font-medium", !hasCardio ? "border-accent bg-accent-soft text-accent" : "border-line")}
+              >
+                No
+              </button>
+              <button
+                type="button"
+                onClick={() => setHasCardio(true)}
+                className={cx("h-8 rounded-lg border px-3 text-xs font-medium", hasCardio ? "border-accent bg-accent-soft text-accent" : "border-line")}
+              >
+                Sí
+              </button>
+            </div>
+          </div>
+
+          {hasCardio && (
+            <div className="space-y-3 border-t border-line pt-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={label} htmlFor="cardioType">Tipo de cardio</label>
+                  <select id="cardioType" className={input} value={cardioType} onChange={(e) => setCardioType(e.target.value)}>
+                    {CARDIO_TYPES.map((k) => {
+                      const act = ACTIVITY_TYPES[k];
+                      return (
+                        <option key={k} value={k}>
+                          {act.emoji} {act.label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+                <div>
+                  <label className={label} htmlFor="cardioMin">Duración (min)</label>
+                  <input
+                    id="cardioMin"
+                    type="number"
+                    min={1}
+                    className={input}
+                    value={cardioMinutes}
+                    onChange={(e) => setCardioMinutes(Math.max(1, Number(e.target.value) || 1))}
+                  />
+                </div>
+              </div>
+              <div>
+                <span className={label}>Intensidad del cardio</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {(Object.keys(INTENSITIES) as Intensity[]).map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setCardioIntensity(k)}
+                      className={cx("h-9 rounded-xl border text-xs font-medium", cardioIntensity === k ? "border-accent bg-accent-soft text-accent" : "border-line")}
+                    >
+                      {INTENSITIES[k]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         {hasRoutine && hasExerciseChanges && (
           <div className="space-y-2 rounded-xl border border-line p-3">
             <p className="text-sm font-medium">Los ejercicios han cambiado respecto a la rutina</p>
@@ -428,16 +504,20 @@ function FinishDialog({
             <span>Guardar los pesos y reps de hoy en la rutina (la próxima vez empiezas desde aquí)</span>
           </label>
         )}
-        <p className="text-sm text-muted">≈ <strong className="text-fg">{kcal} kcal</strong> estimadas con tu peso de {bodyWeightKg} kg</p>
+        <p className="text-sm text-muted">
+          ≈ <strong className="text-fg">{totalKcal} kcal</strong> estimadas con tu peso de {bodyWeightKg} kg
+          {hasCardio && ` (${gymKcal} gym + ${cardioKcal} cardio)`}
+        </p>
         <div className="flex gap-2">
           <Button variant="secondary" className="flex-1" onClick={onClose}>Seguir</Button>
           <Button
             className="flex-[2]"
             disabled={pending}
             onClick={() => {
+              const cardio = hasCardio ? { type: cardioType, durationMin: cardioMinutes, intensity: cardioIntensity } : undefined;
               const opts: QueuedFinish = hasExerciseChanges && hasRoutine
-                ? { durationMin: minutes, intensity, notes, routineAction: routineAction === "keep" ? undefined : routineAction, newRoutineName: routineAction === "new" ? newRoutineName : undefined }
-                : { durationMin: minutes, intensity, notes, updateRoutine };
+                ? { durationMin: minutes, intensity, notes, routineAction: routineAction === "keep" ? undefined : routineAction, newRoutineName: routineAction === "new" ? newRoutineName : undefined, cardio }
+                : { durationMin: minutes, intensity, notes, updateRoutine, cardio };
               queueFinish(sessionId, opts);
               if (!navigator.onLine) return onQueued();
               start(async () => {

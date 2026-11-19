@@ -25,6 +25,9 @@ export const ACTIVITY_TYPES: Record<string, { label: string; emoji: string; met:
   other: { label: "Otra", emoji: "✨", met: { light: 3.5, moderate: 5, vigorous: 7 } },
 };
 
+/** Tipos de actividad mostrados al preguntar por el cardio tras una sesión de gimnasio. */
+export const CARDIO_TYPES = ["running", "cycling", "elliptical", "walking", "rowing", "swimming", "other"] as const;
+
 export function metFor(type: string, intensity: Intensity): number {
   return (ACTIVITY_TYPES[type] ?? ACTIVITY_TYPES.other).met[intensity] ?? 5;
 }

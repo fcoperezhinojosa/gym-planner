@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { propagate, applyToAll, nextSet } from "../src/lib/sets";
 import { normalizeSlot, resolveDay, weekIndexFor } from "../src/lib/schedule";
 import { addDays, isoWeekday, startOfWeek, todayISO, daysInMonth, addMonths } from "../src/lib/dates";
-import { estimateKcal, metFor } from "../src/lib/kcal";
+import { ACTIVITY_TYPES, CARDIO_TYPES, estimateKcal, metFor } from "../src/lib/kcal";
 import { aggregateEnergy, basalKcal, energyVerdict, periodStart } from "../src/lib/energy";
 import { epley1RM, suggestWeight, weekStreak } from "../src/lib/stats";
 
@@ -98,6 +98,7 @@ describe("kcal y stats", () => {
     expect(estimateKcal(5, 75, 60)).toBe(375);
     expect(estimateKcal(metFor("padel", "moderate"), 75, 90)).toBe(731);
     expect(estimateKcal(5, 0, 60)).toBe(0);
+    expect(CARDIO_TYPES.every((k) => Boolean(ACTIVITY_TYPES[k]))).toBe(true);
   });
   it("1RM y sugerencias", () => {
     expect(epley1RM(100, 1)).toBe(100);

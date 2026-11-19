@@ -402,17 +402,44 @@ export async function saveSessionSets(seId: number, sets: SetInput[]) {
   invalidateUser(user.id);
 }
 
-export async function finishWorkout(sessionId: number, opts: { durationMin: number; intensity: Intensity; notes?: string; updateRoutine?: boolean; routineAction?: "update" | "new"; newRoutineName?: string }) {
+export async function finishWorkout(
+  sessionId: number,
+  opts: {
+    durationMin: number;
+    intensity: Intensity;
+    notes?: string;
+    updateRoutine?: boolean;
+    routineAction?: "update" | "new";
+    newRoutineName?: string;
+    cardio?: { type: string; durationMin: number; intensity: Intensity; notes?: string };
+  },
+) {
   const user = await requireUser();
   const session = await ownSession(user.id, sessionId);
+  const wasFinished = session.endedAt !== null;
   const durationMin = clamp(Math.round(opts.durationMin) || 0, 1, 600);
   const intensity: Intensity = isIntensity(opts.intensity) ? opts.intensity : "moderate";
   const kcal = estimateKcal(metFor("gym", intensity), user.bodyWeightKg, durationMin);
   const db = await getDb();
   await db
     .update(s.workoutSessions)
-    .set({ endedAt: new Date(), durationMin, intensity, kcal, notes: opts.notes?.slice(0, 2000) || null })
+    .set({ endedAt: session.endedAt ?? new Date(), durationMin, intensity, kcal, notes: opts.notes?.slice(0, 2000) || null })
     .where(eq(s.workoutSessions.id, sessionId));
+
+  if (!wasFinished && opts.cardio && ACTIVITY_TYPES[opts.cardio.type] && opts.cardio.type !== "gym") {
+    const cardioDuration = clamp(Math.round(opts.cardio.durationMin) || 0, 1, 600);
+    const cardioIntensity: Intensity = isIntensity(opts.cardio.intensity) ? opts.cardio.intensity : "moderate";
+    const cardioKcal = estimateKcal(metFor(opts.cardio.type, cardioIntensity), user.bodyWeightKg, cardioDuration);
+    await db.insert(s.activities).values({
+      userId: user.id,
+      type: opts.cardio.type,
+      date: session.date,
+      durationMin: cardioDuration,
+      intensity: cardioIntensity,
+      kcal: cardioKcal,
+      notes: opts.cardio.notes?.trim().slice(0, 500) || null,
+    });
+  }
 
   if (opts.routineAction === "update" && session.routineId) {
     // Reemplaza la rutina entera (ejercicios + sets) con lo de esta sesión.

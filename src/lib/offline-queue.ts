@@ -5,6 +5,13 @@
 import type { Intensity } from "./kcal";
 
 export type QueuedSet = { reps: number; weightKg: number; type?: string; completed?: boolean };
+export type QueuedCardio = {
+  type: string;
+  durationMin: number;
+  intensity: Intensity;
+  notes?: string;
+};
+
 export type QueuedFinish = {
   durationMin: number;
   intensity: Intensity;
@@ -12,6 +19,7 @@ export type QueuedFinish = {
   updateRoutine?: boolean;
   routineAction?: "update" | "new";
   newRoutineName?: string;
+  cardio?: QueuedCardio;
 };
 
 const SETS = "gym:sets:";
