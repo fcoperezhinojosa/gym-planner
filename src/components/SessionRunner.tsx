@@ -5,11 +5,12 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { addExercisesToSession, createRoutineFromSession, deleteWorkout, finishWorkout, removeSessionExercise, saveSessionSets, updateRoutineFromSession } from "@/app/actions";
 import type { ExerciseLite, SessionDetail } from "@/lib/data";
 import { ACTIVITY_TYPES, CARDIO_TYPES, INTENSITIES, estimateKcal, metFor, type Intensity } from "@/lib/kcal";
-import { equipmentLabel, muscleLabel } from "@/lib/labels";
+import { equipmentLabel, exerciseImage, muscleLabel } from "@/lib/labels";
 import { clearFinish, clearSets, pendingFinish, pendingSets, queueFinish, queueSets, type QueuedFinish } from "@/lib/offline-queue";
 import { ExercisePicker } from "./ExercisePicker";
 import { ExerciseThumb } from "./ExerciseThumb";
-import { SetsEditor, type EditableSet } from "./SetsEditor";
+import type { EditableSet } from "./SetsEditor";
+import { SessionSets } from "./SessionSets";
 import { toast } from "./Toast";
 import { Button, Card, cx, input, label } from "./ui";
 import { useDebouncedSave } from "./useDebouncedSave";
@@ -38,6 +39,15 @@ function fmt(sec: number) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+type Progress = { done: number; total: number; volume: number };
+
+function progressOf(sets: { reps: number; weightKg: number; completed?: boolean }[]): Progress {
+  const doneSets = sets.filter((s) => s.completed);
+  return { done: doneSets.length, total: sets.length, volume: doneSets.reduce((a, s) => a + s.weightKg * s.reps, 0) };
+}
+
+const fmtKg = (n: number) => `${Math.round(n * 10) / 10} kg`;
+
 export function SessionRunner({
   session,
   exercises,
@@ -60,7 +70,19 @@ export function SessionRunner({
   const [pending, start] = useTransition();
   const [now, setNow] = useState(() => Date.now());
   const [restUntil, setRestUntil] = useState<number | null>(null);
-  const [doneCount, setDoneCount] = useState(() => session.exercises.reduce((a, e) => a + e.sets.filter((s) => s.completed).length, 0));
+  const [restTotal, setRestTotal] = useState(0);
+  const [progress, setProgress] = useState<Record<number, Progress>>(() =>
+    Object.fromEntries(session.exercises.map((e) => [e.id, progressOf(e.sets)])),
+  );
+  // Ejercicio desplegado: por defecto el primero que aún tiene series pendientes.
+  const [activeId, setActiveId] = useState<number | null>(() => {
+    const firstOpen = session.exercises.find((e) => e.sets.some((s) => !s.completed));
+    return (firstOpen ?? session.exercises[session.exercises.length - 1])?.id ?? null;
+  });
+  const totals = Object.values(progress).reduce(
+    (a, p) => ({ done: a.done + p.done, total: a.total + p.total, volume: a.volume + p.volume }),
+    { done: 0, total: 0, volume: 0 },
+  );
 
   const [queuedFinish, setQueuedFinish] = useState(false);
   const exerciseIds = session.exercises.map((e) => e.id);
@@ -109,17 +131,60 @@ export function SessionRunner({
   return (
     <div className="space-y-4">
       {!finished && (
-        <Card className="sticky top-2 z-20 flex items-center justify-between gap-3 p-3 shadow-sm">
-          <div>
-            <p className="text-xs text-muted">Tiempo</p>
-            <p className="text-xl font-bold tabular">{fmt(elapsed)}</p>
+        <div className="sticky top-0 z-20 -mx-4 border-b border-hoy-line bg-bg px-4 pb-3 pt-2">
+          <div className="flex items-center gap-2">
+            <Link
+              href="/"
+              aria-label="Volver"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-hoy-surface text-hoy-ink"
+            >
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 6l-6 6 6 6" />
+              </svg>
+            </Link>
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate font-display text-xl font-bold leading-tight text-hoy-ink">{session.name}</h1>
+              <p className="flex items-center gap-1.5 text-[13px] text-hoy-muted">
+                <span className="h-2 w-2 rounded-full bg-hoy-blue" />
+                En curso
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFinishing(true)}
+              className="h-11 shrink-0 rounded-full bg-hoy-blue px-[18px] text-[15px] font-bold text-white transition active:scale-[.98]"
+            >
+              Terminar
+            </button>
           </div>
-          <div className="text-center">
-            <p className="text-xs text-muted">Series hechas</p>
-            <p className="text-xl font-bold tabular">{doneCount}</p>
+          <dl className="mt-3 grid grid-cols-3 gap-2">
+            <div>
+              <dt className="text-[13px] text-hoy-muted">Tiempo</dt>
+              <dd className="font-display text-[22px] font-bold leading-tight tabular text-hoy-ink">{fmt(elapsed)}</dd>
+            </div>
+            <div>
+              <dt className="text-[13px] text-hoy-muted">Volumen</dt>
+              <dd className="font-display text-[22px] font-bold leading-tight tabular text-hoy-ink">{fmtKg(totals.volume)}</dd>
+            </div>
+            <div>
+              <dt className="text-[13px] text-hoy-muted">Series</dt>
+              <dd className="font-display text-[22px] font-bold leading-tight tabular text-hoy-ink">
+                {totals.done}
+                <span className="text-sm text-hoy-muted">/{totals.total}</span>
+              </dd>
+            </div>
+          </dl>
+          <div
+            role="progressbar"
+            aria-label="Series completadas"
+            aria-valuemin={0}
+            aria-valuemax={totals.total}
+            aria-valuenow={totals.done}
+            className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-hoy-track"
+          >
+            <div className="h-full rounded-full bg-hoy-blue transition-[width]" style={{ width: `${totals.total ? (totals.done / totals.total) * 100 : 0}%` }} />
           </div>
-          <Button onClick={() => setFinishing(true)}>Terminar</Button>
-        </Card>
+        </div>
       )}
 
       {queuedFinish && !finished && (
@@ -149,20 +214,38 @@ export function SessionRunner({
         <SaveRoutinePanel sessionId={session.id} routineName={session.name} hasChanges={hasExerciseChanges} />
       )}
 
-      {session.exercises.map((ex) => (
-        <SessionExerciseCard
-          key={ex.id}
-          ex={ex}
-          previous={previous[ex.exerciseId]}
-          trackCompletion
-          onCompleteSet={() => {
-            setDoneCount((c) => c + 1);
-            if (!finished && ex.restSeconds > 0) setRestUntil(Date.now() + ex.restSeconds * 1000);
-          }}
-          onUncomplete={() => setDoneCount((c) => Math.max(0, c - 1))}
-          onRemove={() => confirm(`¿Quitar ${ex.name} de esta sesión?`) && start(() => removeSessionExercise(ex.id))}
-        />
-      ))}
+      {session.exercises.map((ex, idx) => {
+        const nextOpenId = session.exercises.find((e) => e.id !== activeId && (progress[e.id]?.done ?? 0) < (progress[e.id]?.total ?? 0))?.id;
+        return (
+          <SessionExerciseCard
+            key={ex.id}
+            ex={ex}
+            index={idx}
+            count={session.exercises.length}
+            progress={progress[ex.id]}
+            expanded={finished || ex.id === activeId}
+            isNext={!finished && ex.id === nextOpenId && activeId !== null}
+            previous={previous[ex.exerciseId]}
+            onSelect={() => setActiveId(ex.id)}
+            onSets={(sets) => {
+              const p = progressOf(sets);
+              setProgress((cur) => ({ ...cur, [ex.id]: p }));
+              // Al terminar el ejercicio actual se pasa al siguiente con series pendientes.
+              if (!finished && ex.id === activeId && p.total > 0 && p.done === p.total) {
+                const after = session.exercises.slice(idx + 1).concat(session.exercises.slice(0, idx));
+                const next = after.find((e) => (progress[e.id]?.done ?? 0) < (progress[e.id]?.total ?? 0));
+                if (next) setActiveId(next.id);
+              }
+            }}
+            onCompleteSet={() => {
+              if (finished || ex.restSeconds <= 0) return;
+              setRestTotal(ex.restSeconds);
+              setRestUntil(Date.now() + ex.restSeconds * 1000);
+            }}
+            onRemove={() => confirm(`¿Quitar ${ex.name} de esta sesión?`) && start(() => removeSessionExercise(ex.id))}
+          />
+        );
+      })}
 
       <Button variant="secondary" className="w-full" onClick={() => setPicker(true)}>+ Añadir ejercicio</Button>
 
@@ -173,13 +256,42 @@ export function SessionRunner({
       </div>
 
       {restUntil && restLeft > 0 && (
-        <div className="fixed inset-x-0 bottom-20 z-40 mx-auto flex w-[min(92vw,26rem)] items-center justify-between rounded-2xl bg-fg px-4 py-3 text-bg shadow-lg md:bottom-6">
-          <span className="text-sm">Descanso</span>
-          <span className="text-2xl font-bold tabular">{fmt(restLeft)}</span>
-          <div className="flex gap-1">
-            <button className="rounded-lg px-2 py-1 text-sm hover:bg-bg/10" onClick={() => setRestUntil((r) => (r ?? Date.now()) + 15000)}>+15</button>
-            <button className="rounded-lg px-2 py-1 text-sm hover:bg-bg/10" onClick={() => setRestUntil(null)}>Saltar</button>
+        <div
+          role="timer"
+          aria-label={`Descanso: quedan ${fmt(restLeft)}`}
+          className="fixed inset-x-0 bottom-20 z-40 mx-auto flex w-[min(92vw,26rem)] items-center gap-3 rounded-3xl bg-hoy-navy py-3 pl-4 pr-3 text-white shadow-[0_16px_40px_rgba(16,26,61,0.30)] md:bottom-6"
+        >
+          <svg aria-hidden="true" width="52" height="52" viewBox="0 0 52 52" fill="none" className="shrink-0">
+            <circle cx="26" cy="26" r="22" stroke="rgba(255,255,255,0.14)" strokeWidth="5" />
+            <circle
+              cx="26"
+              cy="26"
+              r="22"
+              stroke="#6C87FF"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeDasharray={`${Math.min(1, restLeft / Math.max(restTotal, restLeft, 1)) * 138.2} 138.2`}
+              transform="rotate(-90 26 26)"
+              className="transition-[stroke-dasharray] duration-1000 ease-linear"
+            />
+          </svg>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-2xl font-bold leading-tight tabular">{fmt(restLeft)}</p>
+            <p className="text-xs text-hoy-periwinkle">Descanso</p>
           </div>
+          <button
+            type="button"
+            className="h-11 rounded-full border border-white/20 px-3.5 text-sm font-semibold"
+            onClick={() => {
+              setRestTotal((t) => t + 15);
+              setRestUntil((r) => (r ?? Date.now()) + 15000);
+            }}
+          >
+            +15 s
+          </button>
+          <button type="button" className="h-11 rounded-full bg-white px-4 text-sm font-bold text-hoy-navy" onClick={() => setRestUntil(null)}>
+            Saltar
+          </button>
         </div>
       )}
 
@@ -220,17 +332,27 @@ export function SessionRunner({
 
 function SessionExerciseCard({
   ex,
+  index,
+  count,
+  progress,
+  expanded,
+  isNext,
   previous,
-  trackCompletion,
+  onSelect,
+  onSets,
   onCompleteSet,
-  onUncomplete,
   onRemove,
 }: {
   ex: SessionDetail["exercises"][number];
+  index: number;
+  count: number;
+  progress?: Progress;
+  expanded: boolean;
+  isNext: boolean;
   previous?: { date: string; sets: { reps: number; weightKg: number }[] };
-  trackCompletion: boolean;
+  onSelect: () => void;
+  onSets: (sets: EditableSet[]) => void;
   onCompleteSet: () => void;
-  onUncomplete: () => void;
   onRemove: () => void;
 }) {
   const [sets, setSets] = useState<EditableSet[]>(ex.sets);
@@ -240,47 +362,122 @@ function SessionExerciseCard({
     if (JSON.stringify(pendingSets(ex.id)) === JSON.stringify(v)) clearSets(ex.id);
   }, 400);
 
+  const onSetsRef = useRef(onSets);
+  useEffect(() => {
+    onSetsRef.current = onSets;
+  });
+
   // Si quedaron series sin enviar (sin cobertura), se recuperan de la copia local.
   useEffect(() => {
     const p = pendingSets(ex.id);
+    if (!p) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (p) setSets(p);
+    setSets(p);
+    onSetsRef.current(p);
   }, [ex.id]);
-  const allDone = sets.length > 0 && sets.every((s) => s.completed);
+
+  const done = progress?.done ?? 0;
+  const total = progress?.total ?? sets.length;
+  const allDone = total > 0 && done === total;
+  const src = exerciseImage(ex.image ?? undefined);
+  const detailHref = `/ejercicios/${encodeURIComponent(ex.exerciseId)}`;
+
+  if (!expanded) {
+    return (
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-label={`${ex.name}, ${allDone ? "hecho" : `${done} de ${total} series`}. Abrir`}
+        className={cx(
+          "flex w-full items-center gap-3 rounded-[20px] border p-3 text-left transition active:scale-[.99]",
+          allDone ? "border-hoy-line bg-hoy-surface" : "border-hoy-line bg-card",
+        )}
+      >
+        <ExerciseThumb image={ex.image} muscle={ex.primaryMuscle} className={cx("h-12 w-12 !rounded-[14px]", allDone && "opacity-60")} />
+        <span className="min-w-0 flex-1">
+          <span className={cx("block truncate text-[15px] font-semibold", allDone ? "text-hoy-muted line-through" : "text-hoy-ink")}>{ex.name}</span>
+          <span className="block truncate text-[13px] text-hoy-muted">
+            {done > 0 || allDone ? `${done}/${total} series` : `${total} series`}
+            {progress && progress.volume > 0 && <> · {fmtKg(progress.volume)}</>}
+            {isNext && !allDone && done === 0 && <> · siguiente</>}
+          </span>
+        </span>
+        {allDone ? (
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-hoy-navy text-hoy-periwinkle">
+            <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+          </span>
+        ) : (
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-hoy-muted">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        )}
+      </button>
+    );
+  }
 
   return (
-    <Card className={cx("p-4", allDone && "border-good/50")}>
-      <div className="mb-3 flex items-start gap-3">
-        <Link href={`/ejercicios/${encodeURIComponent(ex.exerciseId)}`} className="shrink-0" aria-label={`Ver detalle de ${ex.name}`}>
-          <ExerciseThumb image={ex.image} muscle={ex.primaryMuscle} />
-        </Link>
+    <section
+      aria-label={ex.name}
+      className={cx("rounded-3xl border-[1.5px] bg-card p-3", allDone ? "border-hoy-line" : "border-hoy-blue")}
+    >
+      <Link
+        href={detailHref}
+        aria-label={`Cómo se hace ${ex.name}`}
+        className="relative flex h-44 items-center justify-center overflow-hidden rounded-3xl bg-white"
+      >
+        {src ? (
+          <img src={src} alt="" className="h-full w-full object-contain" />
+        ) : (
+          <ExerciseThumb image={null} muscle={ex.primaryMuscle} className="h-20 w-20" />
+        )}
+        <span className="absolute left-3 top-3 inline-flex h-7 items-center rounded-full bg-hoy-navy px-3 text-xs font-bold text-white">
+          {index + 1} de {count}
+        </span>
+        <span className="absolute bottom-3 right-3 inline-flex h-10 items-center gap-2 rounded-full bg-card py-0 pl-[5px] pr-3.5 text-sm font-bold text-hoy-ink shadow-[0_2px_8px_rgba(14,21,48,0.15)]">
+          <span className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-hoy-blue text-white">
+            <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5.5v13l11-6.5z" />
+            </svg>
+          </span>
+          Cómo se hace
+        </span>
+      </Link>
+
+      <div className="mb-3 mt-3 flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <Link href={`/ejercicios/${encodeURIComponent(ex.exerciseId)}`} className="block font-semibold leading-tight hover:text-accent">
-            {ex.name}
-          </Link>
-          <p className="text-xs text-muted">
+          <h2 className="font-display text-[22px] font-bold leading-[1.15] text-hoy-ink">{ex.name}</h2>
+          <p className="text-[13px] text-hoy-muted">
             {muscleLabel(ex.primaryMuscle)} · {equipmentLabel(ex.equipment)}
             {previous && <> · última vez {previous.date.split("-").reverse().slice(0, 2).join("/")}</>}
           </p>
           {status === "error" && <p className="text-xs text-danger">Sin conexión: guardado en el móvil, se enviará al volver la señal</p>}
         </div>
-        <button onClick={onRemove} className="rounded-lg px-2 py-1 text-muted hover:bg-danger/10 hover:text-danger" aria-label="Quitar ejercicio">✕</button>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label="Quitar ejercicio"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border border-hoy-line text-hoy-muted hover:bg-danger/10 hover:text-danger"
+        >
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3" />
+          </svg>
+        </button>
       </div>
-      <SetsEditor
+
+      <SessionSets
         sets={sets}
         previous={previous?.sets}
-        trackCompletion={trackCompletion}
         onComplete={onCompleteSet}
         onChange={(next) => {
-          const before = sets.filter((s) => s.completed).length;
-          const after = next.filter((s) => s.completed).length;
-          if (after < before) onUncomplete();
           setSets(next);
           queueSets(ex.id, next);
           schedule(next);
+          onSets(next);
         }}
       />
-    </Card>
+    </section>
   );
 }
 
