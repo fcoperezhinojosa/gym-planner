@@ -15,6 +15,18 @@
   --series-1: #2a78d6;
   --series-2: #eb6834;
   --grid: #e4e2dd;
+  --hoy-ink: #0e1530;
+  --hoy-muted: #5b6278;
+  --hoy-surface: #f5f7fd;
+  --hoy-line: #e6eaf5;
+  --hoy-track: #eef1fa;
+  --hoy-blue: #2f55f4;
+  --hoy-navy: #101a3d;
+  --hoy-periwinkle: #a9baff;
+  --hoy-tint: #e4e9ff;
+  --hoy-tint-ink: #26337a;
+  --hoy-mint: #ddf3e6;
+  --hoy-mint-ink: #1f5a3a;
 }
 
 /* Tema: sin data-theme sigue al sistema; data-theme="light"|"dark" lo fuerza. */
@@ -34,6 +46,18 @@
     --series-1: #3987e5;
     --series-2: #d95926;
     --grid: #2e2d2a;
+    --hoy-ink: #eef1ff;
+    --hoy-muted: #a3abc4;
+    --hoy-surface: #151b33;
+    --hoy-line: #262e4d;
+    --hoy-track: #232b4a;
+    --hoy-blue: #6c8bff;
+    --hoy-navy: #101a3d;
+    --hoy-periwinkle: #a9baff;
+    --hoy-tint: #1b2550;
+    --hoy-tint-ink: #b9c5ff;
+    --hoy-mint: #14301f;
+    --hoy-mint-ink: #9be3b8;
     color-scheme: dark;
   }
 }
@@ -53,6 +77,18 @@
     --series-1: #3987e5;
     --series-2: #d95926;
     --grid: #2e2d2a;
+    --hoy-ink: #eef1ff;
+    --hoy-muted: #a3abc4;
+    --hoy-surface: #151b33;
+    --hoy-line: #262e4d;
+    --hoy-track: #232b4a;
+    --hoy-blue: #6c8bff;
+    --hoy-navy: #101a3d;
+    --hoy-periwinkle: #a9baff;
+    --hoy-tint: #1b2550;
+    --hoy-tint-ink: #b9c5ff;
+    --hoy-mint: #14301f;
+    --hoy-mint-ink: #9be3b8;
     color-scheme: dark;
 }
 
@@ -68,6 +104,18 @@
   --color-accent-soft: var(--accent-soft);
   --color-good: var(--good);
   --color-danger: var(--danger);
+  --color-hoy-ink: var(--hoy-ink);
+  --color-hoy-muted: var(--hoy-muted);
+  --color-hoy-surface: var(--hoy-surface);
+  --color-hoy-line: var(--hoy-line);
+  --color-hoy-track: var(--hoy-track);
+  --color-hoy-blue: var(--hoy-blue);
+  --color-hoy-navy: var(--hoy-navy);
+  --color-hoy-periwinkle: var(--hoy-periwinkle);
+  --color-hoy-tint: var(--hoy-tint);
+  --color-hoy-tint-ink: var(--hoy-tint-ink);
+  --color-hoy-mint: var(--hoy-mint);
+  --color-hoy-mint-ink: var(--hoy-mint-ink);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-display), var(--font-geist-sans), system-ui, sans-serif;

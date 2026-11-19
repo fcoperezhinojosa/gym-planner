@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { startWorkout } from "@/app/actions";
 import { ActivityForm } from "@/components/ActivityForm";
+import { AddActivityToggle } from "@/components/AddActivityToggle";
 import { dayEmoji, dayTitle } from "@/components/DayBadge";
 import { DayOverride } from "@/components/DayOverride";
 import { DeleteActivityButton } from "@/components/DeleteActivityButton";
 import { DeleteWorkoutButton } from "@/components/DeleteWorkoutButton";
-import { Button, Card, LinkButton, Pill, cx } from "@/components/ui";
+import { Card, LinkButton, Pill, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getCalendar, getOpenSession, getRoutine, listRoutineOptions } from "@/lib/data";
 import { addDays, isoWeekday, startOfWeek, todayISO } from "@/lib/dates";
@@ -14,7 +15,8 @@ import { MONTHS, WEEKDAYS, WEEKDAYS_SHORT } from "@/lib/labels";
 import { weekLetter } from "@/lib/schedule";
 import { dayDone, summarizeDays } from "@/lib/week";
 
-const SEGMENT_COLORS = ["#1C1A17", "#C2501A", "#8A847B", "#2F6FB3", "#1F7A4C"];
+// Reparto de kcal por actividad (la primera es la más oscura).
+const SEGMENT_COLORS = ["var(--hoy-navy)", "var(--hoy-blue)", "var(--hoy-periwinkle)", "#2a78d6", "#1f7a4c"];
 
 const ICON = { fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" } as const;
 
@@ -34,17 +36,17 @@ function MoonIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-function CheckIcon({ size = 16 }: { size?: number }) {
+function CheckIcon({ size = 16, strokeWidth = 3 }: { size?: number; strokeWidth?: number }) {
   return (
-    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" strokeWidth={3} {...ICON}>
+    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" strokeWidth={strokeWidth} {...ICON}>
       <path d="M5 12.5l4.5 4.5L19 7.5" />
     </svg>
   );
 }
 
-function PlusIcon() {
+function PlusIcon({ size = 16 }: { size?: number }) {
   return (
-    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" strokeWidth={2.2} {...ICON}>
+    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" strokeWidth={2.4} {...ICON}>
       <path d="M12 5v14M5 12h14" />
     </svg>
   );
@@ -52,20 +54,54 @@ function PlusIcon() {
 
 function PlayIcon() {
   return (
-    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
       <path d="M8 5.5v13l11-6.5z" />
     </svg>
   );
 }
 
-function StatCard({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
+const RING_R = 130;
+const RING_C = 2 * Math.PI * RING_R;
+const RING_GAP = 14;
+
+/** Anillo semanal: un tramo por entreno planificado. Hechos en azul, el de hoy (pendiente) en azul suave. */
+function WeekRing({ planned, done, todayPending, size, label, children }: { planned: number; done: number; todayPending: boolean; size: number; label: string; children: React.ReactNode }) {
+  const n = Math.max(planned, 1);
+  const seg = RING_C / n - (n > 1 ? RING_GAP : 0);
   return (
-    <Card className="flex min-h-[108px] flex-col gap-1.5 rounded-[20px] p-3.5">
-      <span className="text-[13px] text-muted">{label}</span>
-      <span className="font-display text-[32px] font-bold leading-none tabular">{value}</span>
-      {hint && <span className="text-xs text-muted">{hint}</span>}
-    </Card>
+    <div className="relative mt-2 shrink-0 self-center" style={{ width: size, height: size }}>
+      <svg role="img" aria-label={label} width={size} height={size} viewBox="0 0 300 300" fill="none" className="absolute inset-0">
+        <circle cx="150" cy="150" r="114" fill="var(--hoy-navy)" />
+        {Array.from({ length: n }, (_, i) => {
+          const isDone = i < Math.min(done, n);
+          const isToday = todayPending && i === Math.min(done, n - 1) && !isDone;
+          return (
+            <circle
+              key={i}
+              cx="150"
+              cy="150"
+              r={RING_R}
+              stroke={isDone || isToday ? "var(--hoy-blue)" : "var(--hoy-track)"}
+              strokeOpacity={isToday ? 0.35 : 1}
+              strokeWidth="16"
+              strokeLinecap="round"
+              strokeDasharray={`${seg} ${RING_C}`}
+              strokeDashoffset={-(i * (seg + (n > 1 ? RING_GAP : 0)) + (n > 1 ? RING_GAP / 2 : 0))}
+              transform="rotate(-90 150 150)"
+            />
+          );
+        })}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-10 text-center">{children}</div>
+    </div>
   );
+}
+
+function heroTitleSize(title: string) {
+  if (title.length <= 5) return "text-[60px]";
+  if (title.length <= 8) return "text-[40px]";
+  if (title.length <= 14) return "text-[28px]";
+  return "text-[22px]";
 }
 
 export default async function TodayPage() {
@@ -100,53 +136,42 @@ export default async function TodayPage() {
   const totalKcal = items.reduce((acc, i) => acc + i.kcal, 0);
   const totalMin = items.reduce((acc, i) => acc + i.min, 0);
   const sets = routine ? routine.exercises.reduce((acc, e) => acc + e.sets.length, 0) : 0;
-  const showTomorrow = done || tomorrow.planned.kind === "rest";
+  const showPath = done || pathStartsRest;
+  const heroTitle = day.planned.kind === "rest" ? "Descanso" : dayTitle(day.planned);
+  const weekProgressLabel = `Semana: ${sum.done} de ${sum.planned} entrenos hechos`;
 
-  const startForm = (variant: "hero" | "secondary") => {
-    if (open) return null;
-    if (day.planned.kind === "workout" && routine && (variant === "hero" || finishedSessions.length === 0))
-      return (
-        <form action={startWorkout.bind(null, routine.id, today)}>
-          {variant === "hero" ? (
-            <button
-              type="submit"
-              className="flex h-[60px] w-full cursor-pointer items-center justify-center gap-2.5 rounded-[18px] bg-[#C2501A] text-lg font-bold text-white transition hover:brightness-110 active:scale-[.98]"
-            >
-              <PlayIcon />
-              Empezar {routine.name}
-            </button>
-          ) : (
-            <Button variant="secondary" className="w-full">Empezar {routine.name}</Button>
-          )}
-        </form>
-      );
-    if (day.planned.kind !== "workout" && !done && variant === "hero")
-      return (
-        <form action={startWorkout.bind(null, null, today)}>
-          <button
-            type="submit"
-            className="flex h-[60px] w-full cursor-pointer items-center justify-center gap-2.5 rounded-[18px] bg-[#C2501A] text-lg font-bold text-white transition hover:brightness-110 active:scale-[.98]"
-          >
-            <PlayIcon />
-            Entrenar igualmente
-          </button>
-        </form>
-      );
-    return null;
-  };
+  const activityForm = <ActivityForm today={today} bodyWeightKg={user.bodyWeightKg} heightCm={user.heightCm} defaultType={day.planned.activityType ?? "other"} />;
+
+  const canStartRoutine = !open && day.planned.kind === "workout" && routine !== null;
+  const canStartFree = !open && day.planned.kind !== "workout" && !done;
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-1 px-1">
-        <p className="text-sm text-muted">
-          {WEEKDAYS[wd]}, {d} de {MONTHS[m - 1].toLowerCase()}
-          {day.planned.weekIndex !== null && day.planned.source !== "none" && <> · Semana {weekLetter(day.planned.weekIndex)}</>}
-        </p>
-        <h1 className="font-display text-[30px] font-bold leading-[1.1] tracking-tight">Hola, {user.name.split(" ")[0]}</h1>
+    <div className="relative space-y-5">
+      {/* Resplandor tras el anillo */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-[250px] -z-10 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{ background: "radial-gradient(circle, rgba(47,85,244,0.12) 0%, rgba(47,85,244,0.06) 40%, rgba(47,85,244,0) 65%)" }}
+      />
+
+      <header className="flex items-end justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <p className="text-sm text-hoy-muted">
+            {WEEKDAYS[wd]}, {d} de {MONTHS[m - 1].toLowerCase()}
+          </p>
+          <h1 className="font-display text-[30px] font-bold leading-[1.1] tracking-tight">
+            {done ? "Buen trabajo" : "Hola"}, {user.name.split(" ")[0]}
+          </h1>
+        </div>
+        {day.planned.weekIndex !== null && day.planned.source !== "none" && (
+          <span className="inline-flex h-7 shrink-0 items-center rounded-full border border-hoy-line px-3 text-xs font-semibold text-hoy-muted">
+            Semana {weekLetter(day.planned.weekIndex)}
+          </span>
+        )}
       </header>
 
       {open && (
-        <Link href={`/sesion/${open.id}`} className="flex items-center justify-between rounded-[20px] bg-accent p-4 text-accent-fg">
+        <Link href={`/sesion/${open.id}`} className="flex items-center justify-between rounded-[20px] bg-hoy-blue p-4 text-white">
           <span>
             <span className="block text-xs opacity-80">Entrenamiento en curso</span>
             <span className="font-semibold">{open.name}</span>
@@ -156,155 +181,201 @@ export default async function TodayPage() {
       )}
 
       {done ? (
-        <Card className="space-y-5 rounded-[28px] p-6">
-          <div className="flex items-center justify-between">
-            <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-good/15 pl-2.5 pr-3 text-[13px] font-bold text-good">
-              <CheckIcon />
-              Hecho hoy
+        <>
+          <WeekRing planned={sum.planned} done={sum.done} todayPending={false} size={280} label={weekProgressLabel}>
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.16em] text-hoy-periwinkle">
+              <CheckIcon size={14} />
+              HECHO HOY
             </span>
-            <span className="text-[13px] text-muted">
-              {items.length} {items.length === 1 ? "actividad" : "actividades"}
-            </span>
-          </div>
+            <span className="font-display text-[68px] font-bold leading-none tracking-[-0.03em] text-white tabular">{totalKcal.toLocaleString("es-ES")}</span>
+            <span className="text-sm text-[#c5ceea]">kcal · {totalMin} min</span>
+          </WeekRing>
 
-          <div className="space-y-1">
-            <div className="flex items-baseline gap-2">
-              <span className="font-display text-[88px] font-bold leading-[0.95] tracking-[-0.03em] tabular">{totalKcal.toLocaleString("es-ES")}</span>
-              <span className="font-display text-2xl font-medium text-muted">kcal</span>
-            </div>
-            <p className="text-[15px] text-muted">quemadas hoy · {totalMin} min de actividad</p>
-          </div>
-
-          <div className="space-y-1">
+          <section aria-label="Actividad de hoy" className="flex flex-wrap items-center justify-between gap-x-3 rounded-[20px] border border-hoy-line bg-hoy-surface px-4 pb-1.5 pt-3.5">
+            <h2 className="font-display text-[17px] font-bold">Hoy has hecho</h2>
+            <AddActivityToggle className="text-hoy-blue" label={<><PlusIcon />Añadir</>}>{activityForm}</AddActivityToggle>
             <div
               role="img"
               aria-label={`Reparto de kcal: ${items.map((i) => `${i.name} ${i.kcal}`).join(", ")}`}
-              className="flex h-3 gap-[3px]"
+              className="mb-0.5 flex h-2 w-full gap-[3px]"
             >
               {items.map((i, idx) => (
                 <span
                   key={i.key}
-                  className="min-w-1.5 rounded-md"
+                  className="min-w-1.5 rounded"
                   style={{ flex: `${Math.max(i.kcal, 1)} 1 0`, background: SEGMENT_COLORS[idx % SEGMENT_COLORS.length] }}
                 />
               ))}
             </div>
-            <ul>
+            <ul className="w-full">
               {items.map((i, idx) => (
-                <li key={i.key} className={cx("flex h-11 items-center gap-2.5", idx < items.length - 1 && "border-b border-line")}>
+                <li key={i.key} className={cx("flex h-[42px] items-center gap-2.5", idx < items.length - 1 && "border-b border-hoy-line")}>
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: SEGMENT_COLORS[idx % SEGMENT_COLORS.length] }} />
                   {i.kind === "session" ? (
-                    <Link href={`/sesion/${i.id}`} className="min-w-0 flex-1 truncate font-semibold hover:underline">{i.name}</Link>
+                    <Link href={`/sesion/${i.id}`} className="min-w-0 flex-1 truncate text-[15px] font-semibold hover:underline">{i.name}</Link>
                   ) : (
-                    <span className="min-w-0 flex-1 truncate font-semibold">{i.name}</span>
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{i.name}</span>
                   )}
-                  <span className="shrink-0 text-sm text-muted tabular">{i.min} min · {i.kcal} kcal</span>
+                  <span className="shrink-0 text-sm text-hoy-muted tabular">{i.min} min · {i.kcal} kcal</span>
                   {i.kind === "session" ? <DeleteWorkoutButton id={i.id} label={i.name} /> : <DeleteActivityButton id={i.id} label={i.name} />}
                 </li>
               ))}
             </ul>
+          </section>
+
+          {canStartRoutine && finishedSessions.length === 0 && routine && (
+            <form action={startWorkout.bind(null, routine.id, today)}>
+              <button
+                type="submit"
+                className="flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-full border-[1.5px] border-hoy-line bg-card text-[15px] font-semibold transition hover:bg-hoy-surface"
+              >
+                <PlayIcon />
+                Empezar {routine.name}
+              </button>
+            </form>
+          )}
+          <div className="-mt-2 flex flex-wrap items-center justify-center gap-x-6 text-hoy-muted [&>button]:h-11 [&>button]:rounded-lg [&>button]:text-sm [&>button]:font-semibold [&>button]:text-hoy-muted">
+            <DayOverride date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions} />
           </div>
-
-          {startForm("secondary")}
-
-          <details className="group">
-            <summary className="flex h-12 cursor-pointer list-none items-center justify-center gap-2 rounded-[14px] border-[1.5px] border-line text-[15px] font-semibold transition hover:bg-card-2 [&::-webkit-details-marker]:hidden">
-              <PlusIcon />
-              Añadir actividad
-            </summary>
-            <div className="mt-3">
-              <ActivityForm today={today} bodyWeightKg={user.bodyWeightKg} heightCm={user.heightCm} defaultType={day.planned.activityType ?? "other"} />
-            </div>
-          </details>
-        </Card>
+        </>
       ) : (
-        <section
-          aria-label="Entrenamiento de hoy"
-          className="relative overflow-hidden rounded-[28px] border border-line bg-[#1C1A17] p-6 text-white"
-        >
-          <svg aria-hidden="true" width="260" height="260" viewBox="0 0 260 260" fill="none" className="absolute -right-[90px] -top-[90px]">
-            <circle cx="130" cy="130" r="50" stroke="#fff" strokeOpacity="0.1" strokeWidth="2" />
-            <circle cx="130" cy="130" r="80" stroke="#fff" strokeOpacity="0.08" strokeWidth="2" />
-            <circle cx="130" cy="130" r="110" stroke="#fff" strokeOpacity="0.06" strokeWidth="2" />
-            <circle cx="130" cy="130" r="128" stroke="#fff" strokeOpacity="0.04" strokeWidth="2" />
-          </svg>
-
-          <div className="relative space-y-4">
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.12em] text-[#D9D2C7]">
-                <span className="h-2 w-2 rounded-full bg-[#E0559C]" />
-                HOY TOCA
-              </div>
-              <h2 className="font-display text-[56px] font-bold leading-none tracking-[-0.02em] [overflow-wrap:anywhere]">
-                {day.planned.kind === "rest" ? "Descanso" : dayTitle(day.planned)}
-              </h2>
-              {day.planned.label && <p className="text-sm text-[#D0C9BE]">{day.planned.label}</p>}
-              {day.planned.source === "override" && <Pill className="bg-white/15 text-[#F3EEE6]">Cambiado solo hoy</Pill>}
-            </div>
-
-            {routine && (
-              <>
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white/12 px-3 text-[13px] font-medium text-[#F3EEE6]">
-                    <DumbbellIcon />
-                    {routine.exercises.length} {routine.exercises.length === 1 ? "ejercicio" : "ejercicios"}
-                  </span>
-                  {sets > 0 && <span className="inline-flex h-8 items-center rounded-full bg-white/12 px-3 text-[13px] font-medium text-[#F3EEE6]">{sets} series</span>}
-                </div>
-                {routine.exercises.length > 0 ? (
-                  <p className="text-[15px] leading-[1.45] text-[#D0C9BE] [text-wrap:pretty]">
-                    {routine.exercises.slice(0, 3).map((e) => e.name).join(", ")}
-                    {routine.exercises.length > 3 && ` y ${routine.exercises.length - 3} más`}
-                  </p>
-                ) : (
-                  <p className="text-[15px] text-[#D0C9BE]">
-                    Rutina vacía. <Link className="font-semibold text-white underline" href={`/rutinas/${routine.id}`}>Añade ejercicios</Link>
-                  </p>
-                )}
-              </>
+        <>
+          <WeekRing planned={sum.planned} done={sum.done} todayPending={day.planned.kind !== "rest"} size={300} label={weekProgressLabel}>
+            <span className="text-xs font-semibold tracking-[0.16em] text-hoy-periwinkle">HOY TOCA</span>
+            <span className={cx("font-display font-bold leading-none tracking-[-0.02em] text-white [overflow-wrap:anywhere]", heroTitleSize(heroTitle))}>
+              {heroTitle}
+            </span>
+            {routine && routine.exercises.length > 0 && (
+              <span className="text-sm text-[#c5ceea]">
+                {routine.exercises.length} {routine.exercises.length === 1 ? "ejercicio" : "ejercicios"}
+                {sets > 0 && <> · {sets} series</>}
+              </span>
             )}
+            {day.planned.label && <span className="text-sm text-[#c5ceea]">{day.planned.label}</span>}
+            {day.planned.source === "override" && <Pill className="bg-white/15 text-[#e4e9ff]">Cambiado solo hoy</Pill>}
+          </WeekRing>
 
-            {startForm("hero")}
-
-            <div className="-mt-1 flex flex-wrap items-center justify-between gap-x-4 text-[#E9E2D7] [&_button]:text-[#E9E2D7] [&_button:hover]:bg-white/10 [&_button:hover]:text-white">
+          <div className="space-y-1">
+            {canStartRoutine && routine && (
+              <form action={startWorkout.bind(null, routine.id, today)}>
+                <button
+                  type="submit"
+                  className="flex h-16 w-full cursor-pointer items-center justify-between rounded-full bg-hoy-blue pl-6 pr-2.5 text-lg font-bold text-white transition hover:brightness-110 active:scale-[.99]"
+                >
+                  <span className="truncate">Empezar {routine.name}</span>
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-[#2f55f4]">
+                    <PlayIcon />
+                  </span>
+                </button>
+              </form>
+            )}
+            {canStartFree && (
+              <form action={startWorkout.bind(null, null, today)}>
+                <button
+                  type="submit"
+                  className="flex h-16 w-full cursor-pointer items-center justify-between rounded-full bg-hoy-blue pl-6 pr-2.5 text-lg font-bold text-white transition hover:brightness-110 active:scale-[.99]"
+                >
+                  Entrenar igualmente
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-[#2f55f4]">
+                    <PlayIcon />
+                  </span>
+                </button>
+              </form>
+            )}
+            {routine && routine.exercises.length === 0 && (
+              <p className="px-1 pb-1 text-center text-sm text-hoy-muted">
+                Rutina vacía. <Link className="font-semibold text-hoy-blue" href={`/rutinas/${routine.id}`}>Añade ejercicios</Link>
+              </p>
+            )}
+            <div className="flex flex-wrap items-center justify-center gap-x-6 [&>button]:h-11 [&>button]:rounded-lg [&>button]:text-sm [&>button]:font-semibold [&>button]:text-hoy-muted">
               <DayOverride date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions} />
+              <AddActivityToggle className="text-hoy-muted">{activityForm}</AddActivityToggle>
             </div>
-
-            <details className="group border-t border-white/10 pt-2">
-              <summary className="flex h-11 cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-[#E9E2D7] [&::-webkit-details-marker]:hidden">
-                <PlusIcon />
-                Añadir actividad
-              </summary>
-              <div className="mt-2 rounded-2xl bg-card p-3 text-fg">
-                <ActivityForm today={today} bodyWeightKg={user.bodyWeightKg} heightCm={user.heightCm} defaultType={day.planned.activityType ?? "other"} />
-              </div>
-            </details>
           </div>
-        </section>
-      )}
-
-      {done && (
-        <div className="-mt-2 flex flex-wrap items-center gap-2 px-1 [&:empty]:hidden">
-          <DayOverride date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions} />
-        </div>
+        </>
       )}
 
       {day.planned.source === "none" && day.planned.weekIndex === null && (
         <Card className="rounded-[20px] p-4 text-sm">
-          Aún no tienes plan semanal. <Link href="/plan" className="font-semibold text-accent">Créalo aquí</Link> para que cada día te diga qué toca.
-          {routineOptions.length === 0 && <> Antes, <Link href="/rutinas" className="font-semibold text-accent">crea tus rutinas</Link>.</>}
+          Aún no tienes plan semanal. <Link href="/plan" className="font-semibold text-hoy-blue">Créalo aquí</Link> para que cada día te diga qué toca.
+          {routineOptions.length === 0 && <> Antes, <Link href="/rutinas" className="font-semibold text-hoy-blue">crea tus rutinas</Link>.</>}
         </Card>
       )}
 
-      {showTomorrow && (
-        <section aria-label="Camino al próximo entreno" className="space-y-3 rounded-[24px] border border-line bg-card-2/60 px-[18px] py-4">
+      <div className="grid grid-cols-2 gap-2.5">
+        <div className="flex h-[140px] flex-col justify-between rounded-[26px] bg-hoy-tint p-[18px]">
+          <span className="text-[13px] font-semibold text-hoy-tint-ink">Esta semana</span>
+          <div className="space-y-2.5">
+            <span className="font-display text-[44px] font-bold leading-none tabular">
+              {sum.done}
+              <span className="text-2xl text-hoy-tint-ink opacity-80">/{sum.planned}</span>
+            </span>
+            <span role="img" aria-label={`${sum.done} de ${sum.planned} entrenos hechos`} className="flex gap-[5px]">
+              {Array.from({ length: Math.max(sum.planned, 1) }, (_, i) => (
+                <span key={i} className={cx("h-2 flex-1 rounded", i < sum.done ? "bg-hoy-navy" : "bg-hoy-track")} />
+              ))}
+            </span>
+          </div>
+        </div>
+        <div className="flex h-[140px] flex-col justify-between rounded-[26px] bg-hoy-mint p-[18px]">
+          <span className="text-[13px] font-semibold text-hoy-mint-ink">Kcal semana</span>
+          <div className="space-y-0.5">
+            <span className="block font-display text-[44px] font-bold leading-none tabular">{sum.kcal.toLocaleString("es-ES")}</span>
+            <span className="block text-[13px] text-hoy-mint-ink">{sum.minutes} min entrenados</span>
+          </div>
+        </div>
+      </div>
+
+      {!done && (
+        <section aria-label="Plan de la semana" className="space-y-3.5 rounded-3xl border border-hoy-line bg-hoy-surface px-[18px] py-4">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-display text-[17px] font-bold">Plan de la semana</h2>
+            <Link href="/calendario" prefetch={true} className="-my-3.5 inline-flex h-11 items-center text-[13px] font-semibold text-hoy-blue">Ver calendario</Link>
+          </div>
+          <div className="relative">
+            <span aria-hidden="true" className="absolute inset-x-[17px] top-4 h-0 border-t-2 border-dashed border-hoy-line" />
+            <div className="relative flex justify-between">
+              {week.map((x, i) => {
+                const isDone = dayDone(x);
+                const isToday = x.date === today;
+                return (
+                  <Link
+                    key={x.date}
+                    href={`/calendario?d=${x.date}`}
+                    prefetch={true}
+                    aria-label={`${WEEKDAYS[i]}: ${isDone ? "hecho" : dayTitle(x.planned)}`}
+                    className="flex flex-col items-center gap-1.5"
+                  >
+                    <span
+                      className={cx(
+                        "flex h-[34px] w-[34px] items-center justify-center rounded-full",
+                        isDone
+                          ? "bg-hoy-navy text-hoy-periwinkle"
+                          : isToday && x.planned.kind !== "rest"
+                            ? "bg-hoy-blue text-white shadow-[0_0_0_4px_var(--hoy-tint)]"
+                            : "border-[1.5px] border-hoy-line bg-card text-hoy-muted/70",
+                      )}
+                    >
+                      {isDone ? <CheckIcon size={15} /> : x.planned.kind === "rest" ? <MoonIcon size={15} /> : x.planned.kind === "workout" ? <DumbbellIcon size={17} strokeWidth={2.2} /> : <span className="text-sm leading-none" aria-hidden="true">{dayEmoji(x.planned).slice(0, 2)}</span>}
+                    </span>
+                    <span className={cx("text-xs", isToday ? "font-bold text-hoy-blue" : "font-semibold text-hoy-muted")}>{WEEKDAYS_SHORT[i]}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {showPath && (
+        <section aria-label="Camino al próximo entreno" className="space-y-3.5 rounded-3xl border border-hoy-line bg-hoy-surface px-[18px] py-4">
           <div className="flex items-baseline justify-between gap-3">
-            <h3 className="font-display text-[17px] font-bold">{pathStartsRest ? "Toca recuperar" : "Mañana toca"}</h3>
-            <p className="text-right text-[13px] text-muted">
+            <h2 className="font-display text-[17px] font-bold">{pathStartsRest ? "Toca recuperar" : "Mañana toca"}</h2>
+            <p className="text-right text-[13px] text-hoy-muted">
               {pathEnd ? (
                 <>
                   {pathStartsRest ? `${WEEKDAYS[isoWeekday(pathEnd.date) - 1]} vuelves con ` : ""}
-                  <strong className="text-accent">{dayTitle(pathEnd.planned)}</strong>
+                  <strong className="text-hoy-blue">{dayTitle(pathEnd.planned)}</strong>
                 </>
               ) : (
                 "Sin entreno planificado"
@@ -317,11 +388,11 @@ export default async function TodayPage() {
               const last = i === pathDays.length - 1 && pathEnd !== undefined;
               return (
                 <div key={x.date} className="contents">
-                  {i > 0 && <span className="h-0 flex-1 border-t-2 border-dashed border-line" />}
+                  {i > 0 && <span className="h-0 flex-1 border-t-2 border-dashed border-hoy-line" />}
                   <span
                     className={cx(
                       "flex flex-none items-center justify-center rounded-full",
-                      last ? "h-12 w-12 bg-[#1C1A17] text-accent" : "h-10 w-10 border-[1.5px] border-line bg-card text-muted",
+                      last ? "h-12 w-12 bg-hoy-navy text-hoy-periwinkle" : "h-10 w-10 border-[1.5px] border-hoy-line bg-card text-hoy-muted",
                     )}
                   >
                     {x.planned.kind === "rest" ? <MoonIcon /> : x.planned.kind === "workout" ? <DumbbellIcon size={22} strokeWidth={2.2} /> : <span className="text-lg leading-none">{dayEmoji(x.planned).slice(0, 2)}</span>}
@@ -330,11 +401,11 @@ export default async function TodayPage() {
               );
             })}
           </div>
-          <ol className="flex justify-between text-xs font-semibold text-muted">
+          <ol className="flex justify-between text-xs font-semibold text-hoy-muted">
             {pathDays.map((x, i) => {
               const last = i === pathDays.length - 1 && pathEnd !== undefined;
               return (
-                <li key={x.date} className={cx("text-center", last ? "w-12 text-fg" : "w-10")}>
+                <li key={x.date} className={cx("text-center", last ? "w-12 text-hoy-ink" : "w-10")}>
                   {WEEKDAYS_SHORT[isoWeekday(x.date) - 1]}
                   <span className="sr-only">: {dayTitle(x.planned)}</span>
                 </li>
@@ -343,7 +414,7 @@ export default async function TodayPage() {
           </ol>
 
           {tomorrow.planned.kind === "rest" && (
-            <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+            <div className="flex flex-wrap items-center gap-2 border-t border-hoy-line pt-3">
               <DayOverride
                 key={tomorrow.date}
                 date={tomorrow.date}
@@ -356,59 +427,6 @@ export default async function TodayPage() {
           )}
         </section>
       )}
-
-      <section aria-label="Esta semana" className="space-y-2">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="font-display text-xl font-bold">Esta semana</h3>
-          {!showTomorrow && (
-            <Link href="/calendario" prefetch={true} className="inline-flex h-11 items-center text-sm font-semibold text-accent">Ver calendario</Link>
-          )}
-        </div>
-
-        {!done && (
-          <div className="grid grid-cols-7 gap-1.5">
-            {week.map((x, i) => {
-              const isDone = dayDone(x);
-              const isToday = x.date === today;
-              const missed = !isDone && x.date < today && x.planned.kind !== "rest";
-              return (
-                <Link
-                  key={x.date}
-                  href={`/calendario?d=${x.date}`}
-                  prefetch={true}
-                  aria-label={`${WEEKDAYS[i]}: ${isDone ? "hecho" : dayTitle(x.planned)}`}
-                  className={cx(
-                    "flex flex-col items-center gap-2 rounded-2xl border-2 bg-card py-2.5",
-                    isToday ? "border-[#C2501A]" : "border-line",
-                  )}
-                >
-                  <span className={cx("text-xs", isToday ? "font-bold text-accent" : "font-semibold text-muted")}>{WEEKDAYS_SHORT[i]}</span>
-                  <span
-                    className={cx(
-                      "flex h-7 w-7 items-center justify-center rounded-full",
-                      isDone ? "bg-good/15 text-good" : isToday ? "text-accent" : missed ? "text-danger" : "text-muted",
-                    )}
-                  >
-                    {isDone ? (
-                      <CheckIcon />
-                    ) : x.planned.kind === "rest" ? (
-                      <MoonIcon />
-                    ) : (
-                      <span className="text-base leading-none" aria-hidden="true">{dayEmoji(x.planned).slice(0, 2)}</span>
-                    )}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="grid grid-cols-3 gap-2">
-          <StatCard label="Entrenos" value={`${sum.done}/${sum.planned}`} hint="hechos / plan" />
-          <StatCard label="Minutos" value={sum.minutes} />
-          <StatCard label="Kcal (est.)" value={sum.kcal.toLocaleString("es-ES")} />
-        </div>
-      </section>
 
       {routineOptions.length === 0 && (
         <Card className="flex items-center justify-between gap-3 rounded-[20px] p-4">
