@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { CloseAddActivityContext } from "./AddActivityContext";
 import { cx } from "./ui";
 
 /** Botón "Añadir actividad" que despliega el formulario a todo el ancho de la fila donde se coloque. */
@@ -16,7 +17,11 @@ export function AddActivityToggle({ children, label = "Añadir actividad", class
       >
         {label}
       </button>
-      {open && <div className="w-full basis-full rounded-2xl border border-hoy-line bg-card p-3 text-fg">{children}</div>}
+      {open && (
+        <div className="w-full basis-full rounded-2xl border border-hoy-line bg-card p-3 text-fg">
+          <CloseAddActivityContext.Provider value={() => setOpen(false)}>{children}</CloseAddActivityContext.Provider>
+        </div>
+      )}
     </>
   );
 }
