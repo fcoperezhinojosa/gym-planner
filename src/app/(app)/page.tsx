@@ -6,7 +6,7 @@ import { DayOverride } from "@/components/DayOverride";
 import { Button, Card, LinkButton, Pill, Stat, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getCalendar, getOpenSession, getRoutine, listRoutineOptions } from "@/lib/data";
-import { startOfWeek, todayISO } from "@/lib/dates";
+import { addDays, isoWeekday, startOfWeek, todayISO } from "@/lib/dates";
 import { activityEmoji, activityLabel } from "@/lib/kcal";
 import { MONTHS, WEEKDAYS, WEEKDAYS_SHORT, muscleLabel } from "@/lib/labels";
 import { weekLetter } from "@/lib/schedule";
@@ -15,12 +15,15 @@ import { dayDone, summarizeDays } from "@/lib/week";
 export default async function TodayPage() {
   const user = await requireUser();
   const today = todayISO();
-  const [week, open, routineOptions] = await Promise.all([
-    getCalendar(user.id, startOfWeek(today), 7),
+  const tomorrowDate = addDays(today, 1);
+  const [calendar, open, routineOptions] = await Promise.all([
+    getCalendar(user.id, startOfWeek(today), 8),
     getOpenSession(user.id),
     listRoutineOptions(user.id),
   ]);
+  const week = calendar.slice(0, 7);
   const day = week.find((d) => d.date === today)!;
+  const tomorrow = calendar.find((d) => d.date === tomorrowDate)!;
   const routine = day.planned.kind === "workout" && day.planned.routineId ? await getRoutine(user.id, day.planned.routineId) : null;
   const sum = summarizeDays(week, today);
   const [y, m, d] = today.split("-").map(Number);
@@ -123,6 +126,33 @@ export default async function TodayPage() {
         <Card className="p-4 text-sm">
           Aún no tienes plan semanal. <Link href="/plan" className="font-semibold text-accent">Créalo aquí</Link> para que cada día te diga qué toca.
           {routineOptions.length === 0 && <> Antes, <Link href="/rutinas" className="font-semibold text-accent">crea tus rutinas</Link>.</>}
+        </Card>
+      )}
+
+      {tomorrow.planned.kind === "rest" && (
+        <Card className="space-y-3 p-4">
+          <div className="flex items-start gap-3">
+            <span className="text-3xl">{dayEmoji(tomorrow.planned)}</span>
+            <div className="flex-1">
+              <p className="text-xs text-muted">
+                {WEEKDAYS[isoWeekday(tomorrow.date) - 1]} {Number(tomorrow.date.slice(8))}/{Number(tomorrow.date.slice(5, 7))}
+                {tomorrow.planned.weekIndex !== null && tomorrow.planned.source !== "none" && <> · Semana {weekLetter(tomorrow.planned.weekIndex)}</>}
+              </p>
+              <h2 className="text-lg font-bold">{dayTitle(tomorrow.planned)}</h2>
+              {tomorrow.planned.label && <p className="text-sm text-muted">{tomorrow.planned.label}</p>}
+              {tomorrow.planned.source === "override" && <Pill className="mt-1">Cambiado solo este día</Pill>}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <DayOverride
+              key={tomorrow.date}
+              date={tomorrow.date}
+              current={tomorrow.planned}
+              isOverride={tomorrow.planned.source === "override"}
+              routines={routineOptions}
+              showAddActivity={true}
+            />
+          </div>
         </Card>
       )}
 
