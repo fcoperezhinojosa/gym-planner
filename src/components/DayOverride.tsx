@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { setOverride } from "@/app/actions";
 import { MAX_EXTRA_ACTIVITIES, type DaySlot } from "@/lib/schedule";
+import { ActionPanel } from "./ActionPanel";
 import { SlotEditor, type RoutineOption } from "./SlotEditor";
 import { toast } from "./Toast";
 import { Button } from "./ui";
@@ -22,6 +23,8 @@ export function DayOverride({
   isOverride,
   routines,
   showAddActivity = false,
+  dayLabel = "este día",
+  hoy = false,
 }: {
   date: string;
   current: DaySlot;
@@ -29,6 +32,10 @@ export function DayOverride({
   routines: RoutineOption[];
   /** Muestra también "+ Añadir actividad" para planificar otra actividad ese día. */
   showAddActivity?: boolean;
+  /** Cómo se nombra el día en los textos: "hoy", "este día"… */
+  dayLabel?: string;
+  /** Usa la paleta cobalto de la pestaña Hoy en el formulario. */
+  hoy?: boolean;
 }) {
   const [mode, setMode] = useState<"closed" | "edit" | "add">("closed");
   const [pending, start] = useTransition();
@@ -42,12 +49,16 @@ export function DayOverride({
           </Button>
         )}
         <Button variant="ghost" size="sm" onClick={() => setMode("edit")}>
-          Cambiar solo este día
+          Cambiar plan de {dayLabel}
         </Button>
       </>
     );
   return (
-    <div className="mt-2 w-full">
+    <ActionPanel
+      hoy={hoy}
+      title={mode === "add" ? "Planificar otra actividad" : `Cambiar el plan de ${dayLabel}`}
+      hint={`Solo afecta a ${dayLabel}; el resto de la semana no cambia.`}
+    >
       <SlotEditor
         initial={mode === "add" ? withExtraActivity(current) : current}
         routines={routines}
@@ -72,6 +83,6 @@ export function DayOverride({
           })
         }
       />
-    </div>
+    </ActionPanel>
   );
 }

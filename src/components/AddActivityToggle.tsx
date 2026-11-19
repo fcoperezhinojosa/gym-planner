@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { ActionPanel } from "./ActionPanel";
+import { CloseAddActivityContext } from "./AddActivityContext";
 import { cx } from "./ui";
 
-/** Botón "Añadir actividad" que despliega el formulario a todo el ancho de la fila donde se coloque. */
-export function AddActivityToggle({ children, label = "Añadir actividad", className }: { children: ReactNode; label?: ReactNode; className?: string }) {
+/** Botón "Registrar actividad" (lo ya hecho) que despliega el formulario a todo el ancho de la fila donde se coloque. */
+export function AddActivityToggle({ children, label = "Registrar actividad", className }: { children: ReactNode; label?: ReactNode; className?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -16,7 +18,11 @@ export function AddActivityToggle({ children, label = "Añadir actividad", class
       >
         {label}
       </button>
-      {open && <div className="w-full basis-full rounded-2xl border border-hoy-line bg-card p-3 text-fg">{children}</div>}
+      {open && (
+        <ActionPanel hoy title="Registrar actividad" hint="Anota algo que ya has hecho para sumar sus kcal a hoy.">
+          <CloseAddActivityContext.Provider value={() => setOpen(false)}>{children}</CloseAddActivityContext.Provider>
+        </ActionPanel>
+      )}
     </>
   );
 }

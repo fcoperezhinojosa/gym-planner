@@ -9,7 +9,7 @@ import { DeleteWorkoutButton } from "@/components/DeleteWorkoutButton";
 import { Card, LinkButton, Pill, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getCalendar, getOpenSession, getRoutine, listRoutineOptions } from "@/lib/data";
-import { addDays, isoWeekday, startOfWeek, todayISO } from "@/lib/dates";
+import { startOfWeek, todayISO } from "@/lib/dates";
 import { activityLabel } from "@/lib/kcal";
 import { MONTHS, WEEKDAYS, WEEKDAYS_SHORT } from "@/lib/labels";
 import { weekLetter } from "@/lib/schedule";
@@ -106,7 +106,6 @@ function heroTitleSize(title: string) {
 export default async function TodayPage() {
   const user = await requireUser();
   const today = todayISO();
-  const tomorrowDate = addDays(today, 1);
   const [calendar, open, routineOptions] = await Promise.all([
     getCalendar(user.id, startOfWeek(today), 8),
     getOpenSession(user.id),
@@ -114,13 +113,6 @@ export default async function TodayPage() {
   ]);
   const week = calendar.slice(0, 7);
   const day = week.find((d) => d.date === today)!;
-  const tomorrow = calendar.find((d) => d.date === tomorrowDate)!;
-  // Camino al próximo entreno: días de descanso desde mañana hasta el siguiente día con algo planificado.
-  const upcoming = calendar.filter((x) => x.date > today);
-  const pathEndIdx = upcoming.findIndex((x) => x.planned.kind !== "rest");
-  const pathEnd = pathEndIdx >= 0 ? upcoming[pathEndIdx] : undefined;
-  const pathDays = pathEndIdx >= 0 ? upcoming.slice(0, pathEndIdx + 1) : upcoming;
-  const pathStartsRest = tomorrow.planned.kind === "rest";
   const routine = day.planned.kind === "workout" && day.planned.routineId ? await getRoutine(user.id, day.planned.routineId) : null;
   const sum = summarizeDays(week, today);
   const [, m, d] = today.split("-").map(Number);
@@ -135,7 +127,6 @@ export default async function TodayPage() {
   const totalKcal = items.reduce((acc, i) => acc + i.kcal, 0);
   const totalMin = items.reduce((acc, i) => acc + i.min, 0);
   const sets = routine ? routine.exercises.reduce((acc, e) => acc + e.sets.length, 0) : 0;
-  const showPath = done || pathStartsRest;
   const heroTitle = day.planned.kind === "rest" ? "Descanso" : dayTitle(day.planned);
   const plannedToday = day.planned.kind === "rest" ? 0 : 1 + (day.planned.extraActivities?.length ?? 0);
   const doneSegments: RingSegment[] = [
@@ -240,7 +231,7 @@ export default async function TodayPage() {
             </form>
           )}
           <div className="-mt-2 flex flex-wrap items-center justify-center gap-x-6 text-hoy-muted [&>button]:h-11 [&>button]:rounded-lg [&>button]:text-sm [&>button]:font-semibold [&>button]:text-hoy-muted">
-            <DayOverride date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions} />
+            <DayOverride date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions} dayLabel="hoy" hoy />
           </div>
         </>
       ) : (
@@ -293,7 +284,7 @@ export default async function TodayPage() {
               </p>
             )}
             <div className="flex flex-wrap items-center justify-center gap-x-6 [&>button]:h-11 [&>button]:rounded-lg [&>button]:text-sm [&>button]:font-semibold [&>button]:text-hoy-muted">
-              <DayOverride date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions} />
+              <DayOverride date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions} dayLabel="hoy" hoy />
               <AddActivityToggle className="text-hoy-muted">{activityForm}</AddActivityToggle>
             </div>
           </div>
@@ -369,67 +360,6 @@ export default async function TodayPage() {
               })}
             </div>
           </div>
-        </section>
-      )}
-
-      {showPath && (
-        <section aria-label="Camino al próximo entreno" className="space-y-3.5 rounded-3xl border border-hoy-line bg-hoy-surface px-[18px] py-4">
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="font-display text-[17px] font-bold">{pathStartsRest ? "Toca recuperar" : "Mañana toca"}</h2>
-            <p className="text-right text-[13px] text-hoy-muted">
-              {pathEnd ? (
-                <>
-                  {pathStartsRest ? `${WEEKDAYS[isoWeekday(pathEnd.date) - 1]} vuelves con ` : ""}
-                  <strong className="text-hoy-blue">{dayTitle(pathEnd.planned)}</strong>
-                </>
-              ) : (
-                "Sin entreno planificado"
-              )}
-            </p>
-          </div>
-
-          <div className="flex items-center" aria-hidden="true">
-            {pathDays.map((x, i) => {
-              const last = i === pathDays.length - 1 && pathEnd !== undefined;
-              return (
-                <div key={x.date} className="contents">
-                  {i > 0 && <span className="h-0 flex-1 border-t-2 border-dashed border-hoy-line" />}
-                  <span
-                    className={cx(
-                      "flex flex-none items-center justify-center rounded-full",
-                      last ? "h-12 w-12 bg-hoy-navy text-hoy-periwinkle" : "h-10 w-10 border-[1.5px] border-hoy-line bg-card text-hoy-muted",
-                    )}
-                  >
-                    {x.planned.kind === "rest" ? <MoonIcon /> : x.planned.kind === "workout" ? <DumbbellIcon size={22} strokeWidth={2.2} /> : <span className="text-lg leading-none">{dayEmoji(x.planned).slice(0, 2)}</span>}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          <ol className="flex justify-between text-xs font-semibold text-hoy-muted">
-            {pathDays.map((x, i) => {
-              const last = i === pathDays.length - 1 && pathEnd !== undefined;
-              return (
-                <li key={x.date} className={cx("text-center", last ? "w-12 text-hoy-ink" : "w-10")}>
-                  {WEEKDAYS_SHORT[isoWeekday(x.date) - 1]}
-                  <span className="sr-only">: {dayTitle(x.planned)}</span>
-                </li>
-              );
-            })}
-          </ol>
-
-          {tomorrow.planned.kind === "rest" && (
-            <div className="flex flex-wrap items-center gap-2 border-t border-hoy-line pt-3">
-              <DayOverride
-                key={tomorrow.date}
-                date={tomorrow.date}
-                current={tomorrow.planned}
-                isOverride={tomorrow.planned.source === "override"}
-                routines={routineOptions}
-                showAddActivity={true}
-              />
-            </div>
-          )}
         </section>
       )}
 
