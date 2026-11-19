@@ -64,33 +64,32 @@ const RING_R = 130;
 const RING_C = 2 * Math.PI * RING_R;
 const RING_GAP = 14;
 
-/** Anillo semanal: un tramo por entreno planificado. Hechos en azul, el de hoy (pendiente) en azul suave. */
-function WeekRing({ planned, done, todayPending, size, label, children }: { planned: number; done: number; todayPending: boolean; size: number; label: string; children: React.ReactNode }) {
-  const n = Math.max(planned, 1);
-  const seg = RING_C / n - (n > 1 ? RING_GAP : 0);
+type RingSegment = { color: string; opacity?: number };
+
+/** Anillo del día: un tramo por actividad de hoy, con el mismo color que su fila en el listado. */
+function DayRing({ segments, size, label, children }: { segments: RingSegment[]; size: number; label: string; children: React.ReactNode }) {
+  const n = Math.max(segments.length, 1);
+  const gap = n > 1 ? RING_GAP : 0;
+  const seg = RING_C / n - gap;
   return (
-    <div className="relative mt-2 shrink-0 self-center" style={{ width: size, height: size }}>
+    <div className="relative mx-auto mt-2 shrink-0" style={{ width: size, height: size }}>
       <svg role="img" aria-label={label} width={size} height={size} viewBox="0 0 300 300" fill="none" className="absolute inset-0">
         <circle cx="150" cy="150" r="114" fill="var(--hoy-navy)" />
-        {Array.from({ length: n }, (_, i) => {
-          const isDone = i < Math.min(done, n);
-          const isToday = todayPending && i === Math.min(done, n - 1) && !isDone;
-          return (
-            <circle
-              key={i}
-              cx="150"
-              cy="150"
-              r={RING_R}
-              stroke={isDone || isToday ? "var(--hoy-blue)" : "var(--hoy-track)"}
-              strokeOpacity={isToday ? 0.35 : 1}
-              strokeWidth="16"
-              strokeLinecap="round"
-              strokeDasharray={`${seg} ${RING_C}`}
-              strokeDashoffset={-(i * (seg + (n > 1 ? RING_GAP : 0)) + (n > 1 ? RING_GAP / 2 : 0))}
-              transform="rotate(-90 150 150)"
-            />
-          );
-        })}
+        {(segments.length ? segments : [{ color: "var(--hoy-track)" }]).map((sg, i) => (
+          <circle
+            key={i}
+            cx="150"
+            cy="150"
+            r={RING_R}
+            stroke={sg.color}
+            strokeOpacity={sg.opacity ?? 1}
+            strokeWidth="16"
+            strokeLinecap="round"
+            strokeDasharray={`${seg} ${RING_C}`}
+            strokeDashoffset={-(i * (seg + gap) + gap / 2)}
+            transform="rotate(-90 150 150)"
+          />
+        ))}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-10 text-center">{children}</div>
     </div>
@@ -138,7 +137,13 @@ export default async function TodayPage() {
   const sets = routine ? routine.exercises.reduce((acc, e) => acc + e.sets.length, 0) : 0;
   const showPath = done || pathStartsRest;
   const heroTitle = day.planned.kind === "rest" ? "Descanso" : dayTitle(day.planned);
-  const weekProgressLabel = `Semana: ${sum.done} de ${sum.planned} entrenos hechos`;
+  const plannedToday = day.planned.kind === "rest" ? 0 : 1 + (day.planned.extraActivities?.length ?? 0);
+  const doneSegments: RingSegment[] = [
+    ...items.map((_, idx) => ({ color: SEGMENT_COLORS[idx % SEGMENT_COLORS.length] })),
+    // Lo planificado hoy que aún no está hecho, en gris.
+    ...Array.from({ length: Math.max(plannedToday - items.length, 0) }, () => ({ color: "var(--hoy-track)" })),
+  ];
+  const todoSegments: RingSegment[] = Array.from({ length: plannedToday }, (_, idx) => ({ color: SEGMENT_COLORS[idx % SEGMENT_COLORS.length], opacity: 0.4 }));
 
   const activityForm = <ActivityForm today={today} bodyWeightKg={user.bodyWeightKg} heightCm={user.heightCm} defaultType={day.planned.activityType ?? "other"} />;
 
@@ -146,7 +151,7 @@ export default async function TodayPage() {
   const canStartFree = !open && day.planned.kind !== "workout" && !done;
 
   return (
-    <div className="relative space-y-5">
+    <div className="relative space-y-5 overflow-x-clip">
       {/* Resplandor tras el anillo */}
       <div
         aria-hidden="true"
@@ -182,14 +187,14 @@ export default async function TodayPage() {
 
       {done ? (
         <>
-          <WeekRing planned={sum.planned} done={sum.done} todayPending={false} size={280} label={weekProgressLabel}>
+          <DayRing segments={doneSegments} size={280} label={`Hoy: ${items.map((i) => i.name).join(", ")}`}>
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.16em] text-hoy-periwinkle">
               <CheckIcon size={14} />
               HECHO HOY
             </span>
             <span className="font-display text-[68px] font-bold leading-none tracking-[-0.03em] text-white tabular">{totalKcal.toLocaleString("es-ES")}</span>
             <span className="text-sm text-[#c5ceea]">kcal · {totalMin} min</span>
-          </WeekRing>
+          </DayRing>
 
           <section aria-label="Actividad de hoy" className="flex flex-wrap items-center justify-between gap-x-3 rounded-[20px] border border-hoy-line bg-hoy-surface px-4 pb-1.5 pt-3.5">
             <h2 className="font-display text-[17px] font-bold">Hoy has hecho</h2>
@@ -240,7 +245,7 @@ export default async function TodayPage() {
         </>
       ) : (
         <>
-          <WeekRing planned={sum.planned} done={sum.done} todayPending={day.planned.kind !== "rest"} size={300} label={weekProgressLabel}>
+          <DayRing segments={todoSegments} size={300} label={`Hoy toca: ${heroTitle}`}>
             <span className="text-xs font-semibold tracking-[0.16em] text-hoy-periwinkle">HOY TOCA</span>
             <span className={cx("font-display font-bold leading-none tracking-[-0.02em] text-white [overflow-wrap:anywhere]", heroTitleSize(heroTitle))}>
               {heroTitle}
@@ -253,7 +258,7 @@ export default async function TodayPage() {
             )}
             {day.planned.label && <span className="text-sm text-[#c5ceea]">{day.planned.label}</span>}
             {day.planned.source === "override" && <Pill className="bg-white/15 text-[#e4e9ff]">Cambiado solo hoy</Pill>}
-          </WeekRing>
+          </DayRing>
 
           <div className="space-y-1">
             {canStartRoutine && routine && (
