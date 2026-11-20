@@ -18,7 +18,7 @@ const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${fmt(Math.abs
 
 const TONE: Record<string, string> = {
   good: "border-good/40 bg-good/10",
-  warn: "border-accent/40 bg-accent-soft",
+  warn: "border-warn/40 bg-warn-soft",
   danger: "border-danger/40 bg-danger/10",
   neutral: "border-line bg-card-2",
 };
@@ -96,7 +96,7 @@ export function EnergyBalance({
           </div>
           <div className="rounded-xl bg-card-2 p-3">
             <p className="text-xs text-muted">Balance</p>
-            <p className={cx("text-xl font-bold tabular", cur.balance !== null && (cur.balance > 0 ? "text-accent" : "text-good"))}>
+            <p className={cx("text-xl font-bold tabular", cur.balance !== null && (cur.balance > 0 ? "text-warn" : "text-good"))}>
               {cur.balance === null ? "—" : signed(cur.balance)}
             </p>
             <p className="text-xs text-muted">{cur.balance === null ? "" : cur.balance > 0 ? "superávit" : "déficit"}</p>

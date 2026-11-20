@@ -39,7 +39,7 @@ export function Nav() {
     <>
       {/* Escritorio */}
       <aside className="fixed inset-y-0 left-0 hidden w-56 flex-col border-r border-line bg-card px-3 py-5 md:flex">
-        <Link href="/" className="mb-6 flex items-center gap-2 px-2 text-lg font-bold">
+        <Link href="/" className="mb-6 flex items-center gap-2.5 px-2 font-display text-lg font-bold tracking-tight">
           <img src="/icon.svg" alt="" className="h-7 w-7" /> Gym Planner
         </Link>
         <nav className="flex flex-col gap-1">
@@ -48,8 +48,8 @@ export function Nav() {
               key={it.href}
               href={it.href}
               className={cx(
-                "rounded-lg px-3 py-2 text-sm font-medium",
-                isActive(path, it.href) ? "bg-accent-soft text-accent" : "text-muted hover:bg-card-2 hover:text-fg",
+                "rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                isActive(path, it.href) ? "bg-accent-soft font-semibold text-accent-ink" : "text-muted hover:bg-card-2 hover:text-fg",
               )}
             >
               {it.label}
@@ -68,7 +68,10 @@ export function Nav() {
             <Link
               key={it.href}
               href={it.href}
-              className={cx("flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium", active ? "text-accent" : "text-muted")}
+              className={cx(
+                "flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors",
+                active ? "font-semibold text-accent-text" : "text-muted",
+              )}
             >
               <Icon d={it.icon} />
               {it.label}

@@ -74,13 +74,14 @@ export function SetsEditor({
               />
               {trackCompletion ? (
                 <button
+                  type="button"
                   aria-label={s.completed ? `Desmarcar serie ${i + 1}` : `Completar serie ${i + 1}`}
                   onClick={() => {
                     onChange(sets.map((x, k) => (k === i ? { ...x, completed: !x.completed } : x)));
                     if (!s.completed) onComplete?.(i);
                   }}
                   className={cx(
-                    "flex h-10 w-10 items-center justify-center rounded-lg border text-lg",
+                    "flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg border text-lg",
                     s.completed ? "border-good bg-good text-white" : "border-line text-muted hover:border-good",
                   )}
                 >
@@ -88,9 +89,10 @@ export function SetsEditor({
                 </button>
               ) : (
                 <button
+                  type="button"
                   aria-label={`Quitar serie ${i + 1}`}
                   onClick={() => onChange(sets.filter((_, k) => k !== i))}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-danger/10 hover:text-danger"
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-muted hover:bg-danger/10 hover:text-danger"
                 >
                   ✕
                 </button>
@@ -100,21 +102,22 @@ export function SetsEditor({
         })}
       </ul>
       <div className="mt-2 flex flex-wrap gap-2">
-        <button onClick={() => onChange([...sets, nextSet(sets)])} className="rounded-lg bg-card-2 px-3 py-1.5 text-xs font-semibold hover:bg-line">
+        <button type="button" onClick={() => onChange([...sets, nextSet(sets)])} className="cursor-pointer rounded-lg bg-card-2 px-3 py-1.5 text-xs font-semibold hover:bg-line">
           + Serie
         </button>
         {trackCompletion && sets.length > 1 && (
-          <button onClick={() => onChange(sets.slice(0, -1))} className="rounded-lg px-3 py-1.5 text-xs text-muted hover:bg-card-2">
+          <button type="button" onClick={() => onChange(sets.slice(0, -1))} className="cursor-pointer rounded-lg px-3 py-1.5 text-xs text-muted hover:bg-card-2">
             − Quitar última
           </button>
         )}
         {sets.length > 1 && (
           <button
+            type="button"
             onClick={() => {
               const first = sets.find((x) => !x.completed) ?? sets[0];
               onChange(applyToAll(applyToAll(sets, "weightKg", first.weightKg), "reps", first.reps));
             }}
-            className="rounded-lg px-3 py-1.5 text-xs text-muted hover:bg-card-2"
+            className="cursor-pointer rounded-lg px-3 py-1.5 text-xs text-muted hover:bg-card-2"
             title="Copia peso y reps de la primera serie pendiente al resto"
           >
             Igualar series

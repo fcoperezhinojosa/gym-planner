@@ -1,22 +1,25 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BackLink } from "@/components/BackLink";
 import { ProgressChart } from "@/components/Charts";
 import { Card, PageHeader, Pill, Stat } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { exerciseHistory, getExercise } from "@/lib/data";
 import { formatShort } from "@/lib/dates";
 import { CATEGORIES, equipmentLabel, exerciseImage, muscleLabel } from "@/lib/labels";
+import { safeBackHref, safeBackLabel } from "@/lib/navigation";
 import { epley1RM } from "@/lib/stats";
 
 export const metadata: Metadata = { title: "Ejercicio" };
 
-export default async function ExercisePage({ params }: PageProps<"/ejercicios/[id]">) {
+export default async function ExercisePage({ params, searchParams }: PageProps<"/ejercicios/[id]">) {
   const user = await requireUser();
-  const { id } = await params;
+  const [{ id }, sp] = await Promise.all([params, searchParams]);
   const ex = await getExercise(decodeURIComponent(id));
   if (!ex || (ex.ownerId !== null && ex.ownerId !== user.id)) notFound();
   const history = await exerciseHistory(user.id, ex.id);
+  const backHref = safeBackHref(sp.from, "/ejercicios");
+  const backLabel = safeBackLabel(sp.label, "Ejercicios");
 
   const bySession = new Map<number, { date: string; oneRm: number; top: number; volume: number; sets: number }>();
   for (const h of history) {
@@ -34,7 +37,7 @@ export default async function ExercisePage({ params }: PageProps<"/ejercicios/[i
 
   return (
     <div className="space-y-4">
-      <Link href="/ejercicios" className="inline-block text-sm text-muted hover:text-fg">← Ejercicios</Link>
+      <BackLink href={backHref} label={backLabel} />
       <PageHeader title={ex.nameEs ?? ex.name} subtitle={`${muscleLabel(ex.primaryMuscle)} · ${equipmentLabel(ex.equipment)}`} />
       {ex.images.length > 0 && (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

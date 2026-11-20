@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Rutinas, plan semanal, calendario y analítica",
     start_url: "/",
     display: "standalone",
-    background_color: "#0e0e0d",
-    theme_color: "#0e0e0d",
+    background_color: "#0b0f1e",
+    theme_color: "#0b0f1e",
     icons: [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml" }],
   };
 }

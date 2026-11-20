@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useContext, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { logActivity } from "@/app/actions";
 import {
   ACTIVITY_TYPES,
@@ -45,7 +44,6 @@ function ActivityFormInner({
   const [distanceKm, setDistanceKm] = useState(5);
   const [steps, setSteps] = useState(8000);
   const [intensity, setIntensity] = useState<Intensity>("moderate");
-  const router = useRouter();
 
   const isWalking = type === "walking";
   const activeMeasure: WalkingMeasure = isWalking ? measure : "minutes";
@@ -60,10 +58,9 @@ function ActivityFormInner({
   useEffect(() => {
     if (state?.ok) {
       toast("Actividad registrada");
-      router.refresh();
       onSuccess();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.ok]);
 
   return (
@@ -91,8 +88,8 @@ function ActivityFormInner({
                 type="button"
                 onClick={() => setMeasure(m.id)}
                 className={cx(
-                  "h-9 rounded-xl border text-xs font-medium",
-                  measure === m.id ? "border-accent bg-accent-soft text-accent" : "border-line",
+                  "h-9 cursor-pointer rounded-xl border text-xs font-medium transition-colors",
+                  measure === m.id ? "border-accent bg-accent-soft font-semibold text-accent-ink" : "border-line",
                 )}
               >
                 {m.label}

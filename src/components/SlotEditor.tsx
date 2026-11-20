@@ -54,7 +54,10 @@ export function SlotEditor({
             key={k}
             type="button"
             onClick={() => setKind(k)}
-            className={cx("h-11 rounded-xl border text-sm font-medium", kind === k ? "border-accent bg-accent-soft text-accent" : "border-line")}
+            className={cx(
+              "h-11 cursor-pointer rounded-xl border text-sm font-medium transition-colors",
+              kind === k ? "border-accent bg-accent-soft font-semibold text-accent-ink" : "border-line hover:bg-card-2",
+            )}
           >
             {l}
           </button>
@@ -106,7 +109,7 @@ export function SlotEditor({
         </div>
       )}
       {canAddExtra && (
-        <button type="button" onClick={addExtra} className="text-sm font-medium text-accent">
+        <button type="button" onClick={addExtra} className="cursor-pointer text-sm font-semibold text-accent-text hover:underline">
           + Añadir otra actividad ese día
         </button>
       )}

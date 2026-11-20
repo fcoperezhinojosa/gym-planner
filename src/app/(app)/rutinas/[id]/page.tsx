@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BackLink } from "@/components/BackLink";
 import { RoutineEditor } from "@/components/RoutineEditor";
 import { requireUser } from "@/lib/auth";
 import { getRoutine, listExercisesLite } from "@/lib/data";
@@ -16,7 +16,7 @@ export default async function RoutinePage({ params }: PageProps<"/rutinas/[id]">
   if (!routine) notFound();
   return (
     <div>
-      <Link href="/rutinas" className="mb-3 inline-block text-sm text-muted hover:text-fg">← Rutinas</Link>
+      <BackLink href="/rutinas" label="Rutinas" className="mb-3" />
       <RoutineEditor key={routine.id} routine={routine} exercises={exercises} />
     </div>
   );

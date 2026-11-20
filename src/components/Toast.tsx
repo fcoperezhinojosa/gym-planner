@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cx } from "./ui";
 
 export type ToastTone = "good" | "danger" | "neutral";
@@ -21,17 +21,32 @@ export function toast(message: string, tone: ToastTone = "good") {
 
 export function Toaster() {
   const [items, setItems] = useState<ToastItem[]>([]);
+  const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+
+  const dismiss = (id: number) => {
+    const t = timers.current.get(id);
+    if (t) {
+      clearTimeout(t);
+      timers.current.delete(id);
+    }
+    setItems((prev) => prev.filter((x) => x.id !== id));
+  };
 
   useEffect(() => {
+    const timerMap = timers.current;
     const add = (item: ToastItem) => {
       setItems((prev) => [...prev.slice(-2), item]);
-      setTimeout(() => {
+      const t = setTimeout(() => {
+        timerMap.delete(item.id);
         setItems((prev) => prev.filter((x) => x.id !== item.id));
       }, 3200);
+      timerMap.set(item.id, t);
     };
     listeners.add(add);
     return () => {
       listeners.delete(add);
+      for (const t of timerMap.values()) clearTimeout(t);
+      timerMap.clear();
     };
   }, []);
 
@@ -46,7 +61,7 @@ export function Toaster() {
       {items.map((t) => (
         <div
           key={t.id}
-          onClick={() => setItems((prev) => prev.filter((x) => x.id !== t.id))}
+          onClick={() => dismiss(t.id)}
           className={cx(
             "pointer-events-auto flex cursor-pointer items-center gap-2.5 rounded-2xl border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur transition-all",
             t.tone === "good" && "border-good/40 bg-card/95 text-fg",

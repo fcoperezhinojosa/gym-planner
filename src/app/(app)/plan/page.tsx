@@ -20,7 +20,7 @@ export default async function PlanPage() {
         subtitle={
           <>
             Define qué toca cada día. Con un ciclo de 2 semanas puedes alternar, por ejemplo, pecho bajo (A) y pecho alto (B).
-            {routines.length === 0 && <> Primero <Link className="text-accent" href="/rutinas">crea rutinas</Link>.</>}
+            {routines.length === 0 && <> Primero <Link className="font-semibold text-accent-text hover:underline" href="/rutinas">crea rutinas</Link>.</>}
           </>
         }
       />

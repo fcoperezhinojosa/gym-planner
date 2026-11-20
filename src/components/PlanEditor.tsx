@@ -71,8 +71,12 @@ export function PlanEditor({ plan, routines, today, currentWeek }: { plan: Plan;
           {Array.from({ length: plan.cycleWeeks }, (_, i) => (
             <button
               key={i}
+              type="button"
               onClick={() => setWeek(i)}
-              className={cx("h-10 shrink-0 rounded-xl border px-4 text-sm font-semibold", i === w ? "border-accent bg-accent-soft text-accent" : "border-line")}
+              className={cx(
+                "h-10 shrink-0 cursor-pointer rounded-xl border px-4 text-sm font-semibold transition-colors",
+                i === w ? "border-accent bg-accent-soft text-accent-ink" : "border-line hover:bg-card-2",
+              )}
             >
               Semana {weekLetter(i)} {i === currentWeek && <span className="ml-1 text-xs font-normal">(esta)</span>}
             </button>
@@ -88,7 +92,7 @@ export function PlanEditor({ plan, routines, today, currentWeek }: { plan: Plan;
           return (
             <li key={d}>
               <Card className="p-3">
-                <button className="flex w-full items-center gap-3 text-left" onClick={() => setEditing(open ? null : { w, d })}>
+                <button type="button" className="flex w-full cursor-pointer items-center gap-3 text-left" onClick={() => setEditing(open ? null : { w, d })}>
                   <span className="w-20 shrink-0 text-sm font-semibold">{name}</span>
                   <span className="h-8 w-1.5 shrink-0 rounded-full" style={{ background: slotColor(s) }} />
                   <span className="text-lg">{dayEmoji(s)}</span>
@@ -107,9 +111,13 @@ export function PlanEditor({ plan, routines, today, currentWeek }: { plan: Plan;
                       onCancel={() => setEditing(null)}
                       onSave={(v) =>
                         start(async () => {
-                          await setPlanDay(w, d, v);
-                          setEditing(null);
-                          toast("Día actualizado");
+                          try {
+                            await setPlanDay(w, d, v);
+                            setEditing(null);
+                            toast("Día actualizado");
+                          } catch {
+                            toast("No se pudo actualizar el día", "danger");
+                          }
                         })
                       }
                     />

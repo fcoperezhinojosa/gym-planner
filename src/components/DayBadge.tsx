@@ -28,7 +28,7 @@ export function dayEmoji(slot: DaySlot) {
 }
 
 export function slotColor(slot: DaySlot & { routineColor?: string | null }) {
-  if (slot.kind === "workout") return slot.routineColor ?? "#f97316";
-  if (slot.kind === "activity") return "#0ea5e9";
+  if (slot.kind === "workout") return slot.routineColor ?? "#2f55f4";
+  if (slot.kind === "activity") return "#10b981";
   return "#9ca3af";
 }

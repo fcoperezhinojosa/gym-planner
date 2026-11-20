@@ -12,6 +12,8 @@ import {
   walkingDurationMin,
 } from "../src/lib/kcal";
 import { aggregateEnergy, basalKcal, energyVerdict, periodStart } from "../src/lib/energy";
+import { isRedirectError, safeBackHref, safeBackLabel, withBackParams } from "../src/lib/navigation";
+import { EMPTY_PAUSE, computeElapsedSec, formatClock, pauseTimer, resumeTimer } from "../src/lib/session-timer";
 import { epley1RM, suggestWeight, weekStreak } from "../src/lib/stats";
 
 describe("propagate", () => {
@@ -175,5 +177,58 @@ describe("balance energético", () => {
     expect(energyVerdict(-100).tone).toBe("good");
     expect(energyVerdict(-500).tone).toBe("good");
     expect(energyVerdict(-1200).tone).toBe("danger");
+  });
+});
+
+describe("navegación de vuelta", () => {
+  it("acepta rutas internas relativas y bloquea URLs externas", () => {
+    expect(safeBackHref("/rutinas/3", "/ejercicios")).toBe("/rutinas/3");
+    expect(safeBackHref("/sesion/5?ex=12", "/ejercicios")).toBe("/sesion/5?ex=12");
+    expect(safeBackHref("https://evil.com", "/ejercicios")).toBe("/ejercicios");
+    expect(safeBackHref("//evil.com/path", "/ejercicios")).toBe("/ejercicios");
+    expect(safeBackHref("/\\evil", "/ejercicios")).toBe("/ejercicios");
+    expect(safeBackHref(undefined, "/ejercicios")).toBe("/ejercicios");
+  });
+
+  it("construye parámetros from y label de forma segura", () => {
+    expect(withBackParams("/ejercicios/Barbell_Row", "/rutinas/4", "Espalda")).toBe(
+      "/ejercicios/Barbell_Row?from=%2Frutinas%2F4&label=Espalda",
+    );
+    expect(withBackParams("/sesion/9?ex=2", "/calendario?d=2026-11-20", "Calendario")).toBe(
+      "/sesion/9?ex=2&from=%2Fcalendario%3Fd%3D2026-11-20&label=Calendario",
+    );
+    expect(safeBackLabel("  Espalda  ", "Ejercicios")).toBe("Espalda");
+    expect(safeBackLabel("", "Ejercicios")).toBe("Ejercicios");
+  });
+
+  it("detecta NEXT_REDIRECT correctamente", () => {
+    expect(isRedirectError({ digest: "NEXT_REDIRECT;replace;/;307;" })).toBe(true);
+    expect(isRedirectError(new Error("boom"))).toBe(false);
+    expect(isRedirectError(null)).toBe(false);
+  });
+});
+
+describe("cronómetro de sesión con pausa", () => {
+  it("calcula el tiempo activo descontando múltiples pausas", () => {
+    const start = 1_000_000;
+    // 60 s corriendo
+    expect(computeElapsedSec(start, start + 60_000, EMPTY_PAUSE)).toBe(60);
+    // Pausa en t+60 s; aunque pasen 300 s, sigue congelado en 60 s
+    const p1 = pauseTimer(EMPTY_PAUSE, start + 60_000);
+    expect(computeElapsedSec(start, start + 360_000, p1)).toBe(60);
+    // Reanuda en t+360 s (300 s pausado); a t+400 s lleva 100 s activos
+    const r1 = resumeTimer(p1, start + 360_000);
+    expect(r1).toEqual({ pausedAt: null, pausedMs: 300_000 });
+    expect(computeElapsedSec(start, start + 400_000, r1)).toBe(100);
+    // Segunda pausa idempotente
+    const p2 = pauseTimer(r1, start + 400_000);
+    expect(pauseTimer(p2, start + 450_000)).toEqual(p2);
+    expect(computeElapsedSec(start, start + 500_000, p2)).toBe(100);
+  });
+
+  it("formatea reloj con y sin horas", () => {
+    expect(formatClock(0)).toBe("0:00");
+    expect(formatClock(65)).toBe("1:05");
+    expect(formatClock(3661)).toBe("1:01:01");
   });
 });

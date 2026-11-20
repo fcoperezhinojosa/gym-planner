@@ -19,7 +19,7 @@ export function AddActivityToggle({ children, label = "Registrar actividad", cla
         {label}
       </button>
       {open && (
-        <ActionPanel hoy title="Registrar actividad" hint="Anota algo que ya has hecho para sumar sus kcal a hoy.">
+        <ActionPanel title="Registrar actividad" hint="Anota algo que ya has hecho para sumar sus kcal a hoy.">
           <CloseAddActivityContext.Provider value={() => setOpen(false)}>{children}</CloseAddActivityContext.Provider>
         </ActionPanel>
       )}

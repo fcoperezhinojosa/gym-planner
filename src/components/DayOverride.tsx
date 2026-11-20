@@ -24,7 +24,6 @@ export function DayOverride({
   routines,
   showAddActivity = false,
   dayLabel = "este día",
-  hoy = false,
 }: {
   date: string;
   current: DaySlot;
@@ -34,8 +33,6 @@ export function DayOverride({
   showAddActivity?: boolean;
   /** Cómo se nombra el día en los textos: "hoy", "este día"… */
   dayLabel?: string;
-  /** Usa la paleta cobalto de la pestaña Hoy en el formulario. */
-  hoy?: boolean;
 }) {
   const [mode, setMode] = useState<"closed" | "edit" | "add">("closed");
   const [pending, start] = useTransition();
@@ -44,18 +41,17 @@ export function DayOverride({
     return (
       <>
         {canAdd && (
-          <Button variant="secondary" size="sm" onClick={() => setMode("add")}>
+          <Button type="button" variant="secondary" size="sm" onClick={() => setMode("add")}>
             + {current.kind === "rest" ? "Planificar actividad" : "Añadir otra actividad"}
           </Button>
         )}
-        <Button variant="ghost" size="sm" onClick={() => setMode("edit")}>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setMode("edit")}>
           Cambiar plan de {dayLabel}
         </Button>
       </>
     );
   return (
     <ActionPanel
-      hoy={hoy}
       title={mode === "add" ? "Planificar otra actividad" : `Cambiar el plan de ${dayLabel}`}
       hint={`Solo afecta a ${dayLabel}; el resto de la semana no cambia.`}
     >
@@ -68,18 +64,26 @@ export function DayOverride({
           isOverride
             ? () =>
                 start(async () => {
-                  await setOverride(date, null);
-                  setMode("closed");
-                  toast("Vuelto al plan original");
+                  try {
+                    await setOverride(date, null);
+                    setMode("closed");
+                    toast("Vuelto al plan original");
+                  } catch {
+                    toast("No se pudo restablecer el plan", "danger");
+                  }
                 })
             : undefined
         }
         resetLabel="Volver al plan"
         onSave={(slot) =>
           start(async () => {
-            await setOverride(date, slot);
-            setMode("closed");
-            toast("Cambios del día guardados");
+            try {
+              await setOverride(date, slot);
+              setMode("closed");
+              toast("Cambios del día guardados");
+            } catch {
+              toast("No se pudieron guardar los cambios", "danger");
+            }
           })
         }
       />

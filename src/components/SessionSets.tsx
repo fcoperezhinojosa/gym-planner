@@ -38,11 +38,11 @@ export function SessionSets({
   };
 
   const inputCls =
-    "h-11 w-full rounded-xl border-0 bg-hoy-track text-center font-display text-[17px] font-bold tabular text-hoy-ink outline-none focus:ring-2 focus:ring-hoy-blue";
+    "h-11 w-full rounded-xl border-0 bg-card-2 text-center font-display text-[17px] font-bold tabular text-fg outline-none focus:ring-2 focus:ring-accent";
 
   return (
     <div>
-      <div className={cx("grid gap-2 px-1 pb-1.5 text-[11px] font-bold tracking-[0.08em] text-hoy-muted", COLS)}>
+      <div className={cx("grid gap-2 px-1 pb-1.5 text-[11px] font-bold tracking-[0.08em] text-muted", COLS)}>
         <span className="text-center">SERIE</span>
         <span>ANTERIOR</span>
         <span className="text-center">KG</span>
@@ -59,15 +59,15 @@ export function SessionSets({
               key={i}
               className={cx(
                 "rounded-2xl p-1",
-                s.completed && "bg-hoy-tint",
-                isCurrent && "shadow-[inset_0_0_0_1.5px_var(--hoy-blue)]",
+                s.completed && "bg-accent-soft",
+                isCurrent && "shadow-[inset_0_0_0_1.5px_var(--accent)]",
               )}
             >
               <div className={cx("grid items-center gap-2", COLS)}>
-                <span className={cx("text-center text-[15px] font-bold", isCurrent ? "text-hoy-blue" : s.completed ? "text-hoy-ink" : "text-hoy-muted")}>
+                <span className={cx("text-center text-[15px] font-bold", isCurrent ? "text-accent-text" : s.completed ? "text-fg" : "text-muted")}>
                   {i + 1}
                 </span>
-                <span className="truncate text-[13px] text-hoy-muted tabular">{prev ? `${prev.weightKg} × ${prev.reps}` : "—"}</span>
+                <span className="truncate text-[13px] text-muted tabular">{prev ? `${prev.weightKg} × ${prev.reps}` : "—"}</span>
                 {s.completed ? (
                   <span className="flex h-11 items-center justify-center font-display text-[17px] font-bold tabular">{s.weightKg}</span>
                 ) : (
@@ -105,19 +105,19 @@ export function SessionSets({
                     if (!s.completed) onComplete?.(i);
                   }}
                   className={cx(
-                    "flex h-11 w-11 items-center justify-center rounded-xl border-[1.5px] transition active:scale-95",
+                    "flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl border-[1.5px] transition active:scale-95",
                     s.completed
-                      ? "border-hoy-blue bg-hoy-blue text-white"
+                      ? "border-accent bg-accent text-accent-fg"
                       : isCurrent
-                        ? "border-hoy-blue bg-card text-hoy-blue"
-                        : "border-hoy-line bg-card text-hoy-muted",
+                        ? "border-accent bg-card text-accent-text"
+                        : "border-line bg-card text-muted",
                   )}
                 >
                   <CheckIcon />
                 </button>
               </div>
               {gain > 0 && (
-                <p className="flex items-center gap-1.5 pb-0.5 pl-10 pt-1 text-xs font-semibold text-hoy-mint-ink">
+                <p className="flex items-center gap-1.5 pb-0.5 pl-10 pt-1 text-xs font-semibold text-mint-ink">
                   <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 19V5M6 11l6-6 6 6" />
                   </svg>
@@ -132,7 +132,7 @@ export function SessionSets({
       <button
         type="button"
         onClick={() => onChange([...sets, nextSet(sets)])}
-        className="mt-2 flex h-11 w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-hoy-line text-sm font-semibold text-hoy-blue transition hover:bg-hoy-surface"
+        className="mt-2 flex h-11 w-full cursor-pointer items-center justify-center gap-1.5 rounded-2xl border border-dashed border-line text-sm font-semibold text-accent-text transition hover:bg-surface"
       >
         <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
           <path d="M12 5v14M5 12h14" />
@@ -141,7 +141,7 @@ export function SessionSets({
       </button>
       {sets.length > 1 && (
         <div className="mt-1 flex justify-center gap-4">
-          <button type="button" onClick={() => onChange(sets.slice(0, -1))} className="h-11 text-xs font-semibold text-hoy-muted hover:text-hoy-ink">
+          <button type="button" onClick={() => onChange(sets.slice(0, -1))} className="h-11 cursor-pointer text-xs font-semibold text-muted hover:text-fg">
             Quitar última
           </button>
           <button
@@ -151,7 +151,7 @@ export function SessionSets({
               const first = sets.find((x) => !x.completed) ?? sets[0];
               onChange(applyToAll(applyToAll(sets, "weightKg", first.weightKg), "reps", first.reps));
             }}
-            className="h-11 text-xs font-semibold text-hoy-muted hover:text-hoy-ink"
+            className="h-11 cursor-pointer text-xs font-semibold text-muted hover:text-fg"
           >
             Igualar series
           </button>

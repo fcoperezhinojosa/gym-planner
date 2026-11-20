@@ -30,6 +30,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
       routineOptions={routineOptions}
       summary={sum}
       bodyWeightKg={user.bodyWeightKg}
+      heightCm={user.heightCm}
     />
   );
 }

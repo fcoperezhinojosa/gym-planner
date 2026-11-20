@@ -5,6 +5,7 @@ import { Button, Card, LinkButton, PageHeader, input } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { listExercisesLite } from "@/lib/data";
 import { EQUIPMENT, MUSCLES, equipmentLabel, muscleLabel } from "@/lib/labels";
+import { withBackParams } from "@/lib/navigation";
 import { normalize } from "@/lib/text";
 
 export const metadata: Metadata = { title: "Ejercicios" };
@@ -25,6 +26,8 @@ export default async function ExercisesPage({ searchParams }: PageProps<"/ejerci
   );
   const shown = filtered.slice(0, page * PAGE);
   const qs = (p: number) => `/ejercicios?${new URLSearchParams({ q, muscle, equipment, p: String(p) })}`;
+  const hasFilters = Boolean(q || muscle || equipment || page > 1);
+  const currentListHref = hasFilters ? qs(page) : "/ejercicios";
 
   return (
     <div className="space-y-4">
@@ -44,8 +47,8 @@ export default async function ExercisesPage({ searchParams }: PageProps<"/ejerci
       <ul className="grid gap-2 sm:grid-cols-2">
         {shown.map((e) => (
           <li key={e.id}>
-            <Link href={`/ejercicios/${encodeURIComponent(e.id)}`}>
-              <Card className="flex items-center gap-3 p-2 hover:border-accent">
+            <Link href={hasFilters ? withBackParams(`/ejercicios/${encodeURIComponent(e.id)}`, currentListHref, "Ejercicios") : `/ejercicios/${encodeURIComponent(e.id)}`}>
+              <Card className="flex items-center gap-3 p-2 transition hover:border-accent">
                 <ExerciseThumb image={e.image} muscle={e.primaryMuscle} className="h-20 w-20" />
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium">{e.name}</span>

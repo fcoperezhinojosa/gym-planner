@@ -4,7 +4,7 @@
  * - Imágenes de ejercicios: caché primero.
  * Las Server Actions (POST) nunca se cachean; el cliente guarda sus cambios en cola local.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const PAGES = `pages-${VERSION}`;
 const STATIC = `static-${VERSION}`;
 const IMAGES = `images-${VERSION}`;

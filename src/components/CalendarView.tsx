@@ -4,16 +4,19 @@ import Link, { useLinkStatus } from "next/link";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { startWorkout } from "@/app/actions";
 import { ActivityForm } from "@/components/ActivityForm";
+import { CloseAddActivityContext } from "@/components/AddActivityContext";
 import { dayEmoji, dayEmojis, dayTitle, slotColor } from "@/components/DayBadge";
 import { DayOverride } from "@/components/DayOverride";
 import { DeleteActivityButton } from "@/components/DeleteActivityButton";
 import { DeleteWorkoutButton } from "@/components/DeleteWorkoutButton";
 import type { RoutineOption } from "@/components/SlotEditor";
+import { toast } from "@/components/Toast";
 import { Button, Card, PageHeader, Pill, cx } from "@/components/ui";
 import type { CalendarDay } from "@/lib/data";
 import { addMonths, isoWeekday, startOfMonth } from "@/lib/dates";
 import { activityEmoji, activityLabel } from "@/lib/kcal";
 import { MONTHS, WEEKDAYS, WEEKDAYS_SHORT } from "@/lib/labels";
+import { isRedirectError, withBackParams } from "@/lib/navigation";
 import { weekLetter } from "@/lib/schedule";
 import { dayDone } from "@/lib/week";
 
@@ -44,6 +47,7 @@ export function CalendarView({
   routineOptions,
   summary,
   bodyWeightKg,
+  heightCm = null,
 }: {
   month: string;
   today: string;
@@ -52,6 +56,7 @@ export function CalendarView({
   routineOptions: RoutineOption[];
   summary: { done: number; minutes: number; kcal: number };
   bodyWeightKg: number;
+  heightCm?: number | null;
 }) {
   const [selected, setSelected] = useState(initialSelected);
   // El formulario de actividad se abre para un día concreto: al cambiar de día se cierra solo.
@@ -153,7 +158,7 @@ export function CalendarView({
                   isSelected ? "bg-accent-soft ring-2 ring-accent" : "hover:bg-card-2",
                 )}
               >
-                <span className={cx("text-xs tabular", d.date === today && "font-bold text-accent")}>{Number(d.date.slice(8))}</span>
+                <span className={cx("text-xs tabular", d.date === today && "font-bold text-accent-text")}>{Number(d.date.slice(8))}</span>
                 <CellEmojis slot={d.planned} hidden={d.planned.kind === "rest" && !done} />
                 <span
                   className="absolute bottom-1 h-1 w-4 rounded-full"
@@ -195,7 +200,10 @@ export function CalendarView({
           </div>
           {sel.sessions.map((s) => (
             <div key={s.id} className="flex items-center gap-1 rounded-xl bg-card-2 pr-1.5 text-sm">
-              <Link href={`/sesion/${s.id}`} className="min-w-0 flex-1 truncate rounded-xl px-3 py-2 hover:bg-line">
+              <Link
+                href={withBackParams(`/sesion/${s.id}`, `/calendario?m=${month}&d=${sel.date}`, "Calendario")}
+                className="min-w-0 flex-1 truncate rounded-xl px-3 py-2 hover:bg-line"
+              >
                 🏋️ {s.name} {s.finished ? `· ${s.durationMin} min · ${s.kcal} kcal` : "· en curso"}
               </Link>
               <DeleteWorkoutButton id={s.id} label={s.name} />
@@ -212,12 +220,18 @@ export function CalendarView({
           <div className="flex flex-wrap items-center gap-2">
             {sel.date <= today && (
               <Button
+                type="button"
                 size="sm"
                 variant="secondary"
                 disabled={startingWorkout}
                 onClick={() =>
                   startWorkoutTransition(async () => {
-                    await startWorkout(sel.planned.kind === "workout" ? sel.planned.routineId : null, sel.date);
+                    try {
+                      await startWorkout(sel.planned.kind === "workout" ? sel.planned.routineId : null, sel.date);
+                    } catch (err) {
+                      if (isRedirectError(err)) throw err;
+                      toast("No se pudo abrir el entrenamiento", "danger");
+                    }
                   })
                 }
               >
@@ -229,7 +243,11 @@ export function CalendarView({
               </Button>
             )}
             {sel.date <= today && (
-              <button type="button" onClick={() => setActivityFormDate(showActivityForm ? null : sel.date)} className="text-sm text-accent">
+              <button
+                type="button"
+                onClick={() => setActivityFormDate(showActivityForm ? null : sel.date)}
+                className="cursor-pointer rounded-lg px-2 py-1 text-sm font-semibold text-accent-text hover:bg-accent-soft"
+              >
                 {showActivityForm ? "Cancelar" : "+ Actividad"}
               </button>
             )}
@@ -244,7 +262,9 @@ export function CalendarView({
           </div>
           {showActivityForm && (
             <div className="border-t border-line pt-3">
-              <ActivityForm key={sel.date} today={sel.date} bodyWeightKg={bodyWeightKg} defaultType="other" />
+              <CloseAddActivityContext.Provider value={() => setActivityFormDate(null)}>
+                <ActivityForm key={sel.date} today={sel.date} bodyWeightKg={bodyWeightKg} heightCm={heightCm} defaultType="other" />
+              </CloseAddActivityContext.Provider>
             </div>
           )}
         </Card>

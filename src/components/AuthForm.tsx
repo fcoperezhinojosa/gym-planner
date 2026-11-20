@@ -39,9 +39,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       <Button className="w-full" disabled={pending}>{mode === "login" ? "Entrar" : "Crear cuenta"}</Button>
       <p className="text-center text-sm text-muted">
         {mode === "login" ? (
-          <>¿No tienes cuenta? <Link className="text-accent" href="/registro">Regístrate</Link></>
+          <>¿No tienes cuenta? <Link className="font-semibold text-accent-text hover:underline" href="/registro">Regístrate</Link></>
         ) : (
-          <>¿Ya tienes cuenta? <Link className="text-accent" href="/login">Entra</Link></>
+          <>¿Ya tienes cuenta? <Link className="font-semibold text-accent-text hover:underline" href="/login">Entra</Link></>
         )}
       </p>
     </form>

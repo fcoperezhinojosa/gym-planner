@@ -11,7 +11,7 @@ export default function Page() {
         <div className="mb-6 flex items-center gap-3">
           <img src="/icon.svg" alt="" className="h-10 w-10" />
           <div>
-            <h1 className="text-xl font-bold">Gym Planner</h1>
+            <h1 className="font-display text-xl font-bold">Gym Planner</h1>
             <p className="text-sm text-muted">Entrar</p>
           </div>
         </div>

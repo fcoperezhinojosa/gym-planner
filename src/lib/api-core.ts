@@ -145,7 +145,7 @@ export async function createRoutineApi(userId: number, input: unknown, baseUrl: 
   if (!isObj(input)) throw new ApiError(400, "Cuerpo JSON no válido");
   const name = String(input.name ?? "").trim().slice(0, 80);
   if (!name) throw new ApiError(400, "name es obligatorio");
-  const color = typeof input.color === "string" && /^#[0-9a-f]{6}$/i.test(input.color) ? input.color : "#f97316";
+  const color = typeof input.color === "string" && /^#[0-9a-f]{6}$/i.test(input.color) ? input.color : "#2f55f4";
   const notes = input.notes ? String(input.notes).slice(0, 2000) : null;
   const items = input.exercises === undefined ? [] : await parseExercises(userId, input.exercises);
   const db = await getDb();

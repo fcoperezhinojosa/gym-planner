@@ -430,3 +430,34 @@ export async function getEnergyDays(userId: number, from: string, days: number):
   }
   return [...byDate.values()];
 }
+
+export async function listActivities(userId: number, limit = 50) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userCacheTag(userId));
+  const db = await getDb();
+  return db
+    .select()
+    .from(s.activities)
+    .where(eq(s.activities.userId, userId))
+    .orderBy(desc(s.activities.date), desc(s.activities.id))
+    .limit(limit);
+}
+
+export async function listRoutineExerciseIds(userId: number, routineId: number): Promise<string[] | null> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userCacheTag(userId));
+  const db = await getDb();
+  const [own] = await db
+    .select({ id: s.routines.id })
+    .from(s.routines)
+    .where(and(eq(s.routines.id, routineId), eq(s.routines.userId, userId)));
+  if (!own) return null;
+  const rows = await db
+    .select({ exerciseId: s.routineExercises.exerciseId })
+    .from(s.routineExercises)
+    .where(eq(s.routineExercises.routineId, routineId))
+    .orderBy(asc(s.routineExercises.position), asc(s.routineExercises.id));
+  return rows.map((r) => r.exerciseId);
+}

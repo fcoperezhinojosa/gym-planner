@@ -1,7 +1,9 @@
 "use client";
 
-import { useActionState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { createApiToken, revokeApiToken } from "@/app/actions";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { toast } from "./Toast";
 import { Button, input, label } from "./ui";
 
 export type TokenRow = { id: number; name: string; scope: string; createdAt: string; lastUsedAt: string | null };
@@ -11,6 +13,7 @@ const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("es-
 export function ApiTokens({ tokens, baseUrl }: { tokens: TokenRow[]; baseUrl: string }) {
   const [state, action, pending] = useActionState(createApiToken, undefined);
   const [revoking, start] = useTransition();
+  const [revokingToken, setRevokingToken] = useState<{ id: number; name: string } | null>(null);
 
   return (
     <div className="space-y-4">
@@ -35,10 +38,20 @@ export function ApiTokens({ tokens, baseUrl }: { tokens: TokenRow[]; baseUrl: st
       {state?.error && <p className="text-sm text-danger">{state.error}</p>}
 
       {state?.token && (
-        <div className="space-y-2 rounded-xl border border-accent bg-accent-soft p-3 text-sm">
+        <div className="space-y-2 rounded-xl border border-accent bg-accent-soft p-3 text-sm text-accent-ink">
           <p className="font-semibold">Copia el token ahora: no se volverá a mostrar.</p>
-          <code className="block break-all rounded-lg bg-bg p-2 text-xs">{state.token}</code>
-          <Button type="button" size="sm" variant="secondary" onClick={() => navigator.clipboard?.writeText(state.token!)}>Copiar</Button>
+          <code className="block break-all rounded-lg bg-bg p-2 text-xs text-fg">{state.token}</code>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              navigator.clipboard?.writeText(state.token!);
+              toast("Token copiado");
+            }}
+          >
+            Copiar
+          </Button>
         </div>
       )}
 
@@ -53,10 +66,11 @@ export function ApiTokens({ tokens, baseUrl }: { tokens: TokenRow[]; baseUrl: st
                 </span>
               </span>
               <Button
+                type="button"
                 variant="danger"
                 size="sm"
                 disabled={revoking}
-                onClick={() => confirm(`¿Revocar el token "${t.name}"? Las IAs que lo usen dejarán de funcionar.`) && start(() => revokeApiToken(t.id))}
+                onClick={() => setRevokingToken({ id: t.id, name: t.name })}
               >
                 Revocar
               </Button>
@@ -79,6 +93,28 @@ export function ApiTokens({ tokens, baseUrl }: { tokens: TokenRow[]; baseUrl: st
           <p>El enlace a la rutina de hoy se abre en tu móvil con tu sesión iniciada.</p>
         </div>
       </details>
+
+      <ConfirmDialog
+        open={revokingToken !== null}
+        title={revokingToken ? `¿Revocar "${revokingToken.name}"?` : "¿Revocar token?"}
+        description="Las IAs que usen este token dejarán de funcionar inmediatamente."
+        confirmLabel="Revocar"
+        pending={revoking}
+        onCancel={() => setRevokingToken(null)}
+        onConfirm={() => {
+          if (!revokingToken) return;
+          const id = revokingToken.id;
+          start(async () => {
+            try {
+              await revokeApiToken(id);
+              setRevokingToken(null);
+              toast("Token revocado");
+            } catch {
+              toast("No se pudo revocar el token", "danger");
+            }
+          });
+        }}
+      />
     </div>
   );
 }

@@ -6,17 +6,19 @@ import { dayEmoji, dayTitle } from "@/components/DayBadge";
 import { DayOverride } from "@/components/DayOverride";
 import { DeleteActivityButton } from "@/components/DeleteActivityButton";
 import { DeleteWorkoutButton } from "@/components/DeleteWorkoutButton";
+import { StartWorkoutButton } from "@/components/StartWorkoutButton";
 import { Card, LinkButton, Pill, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getCalendar, getOpenSession, getRoutine, listRoutineOptions } from "@/lib/data";
 import { startOfWeek, todayISO } from "@/lib/dates";
 import { activityLabel } from "@/lib/kcal";
 import { MONTHS, WEEKDAYS, WEEKDAYS_SHORT } from "@/lib/labels";
+import { withBackParams } from "@/lib/navigation";
 import { weekLetter } from "@/lib/schedule";
 import { dayDone, summarizeDays } from "@/lib/week";
 
 // Reparto de kcal por actividad (la primera es la más oscura).
-const SEGMENT_COLORS = ["var(--hoy-navy)", "var(--hoy-blue)", "var(--hoy-periwinkle)", "#2a78d6", "#1f7a4c"];
+const SEGMENT_COLORS = ["var(--navy)", "var(--accent)", "var(--periwinkle)", "#2a78d6", "#1f7a4c"];
 
 const ICON = { fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" } as const;
 
@@ -74,8 +76,8 @@ function DayRing({ segments, size, label, children }: { segments: RingSegment[];
   return (
     <div className="relative mx-auto mt-2 shrink-0" style={{ width: size, height: size }}>
       <svg role="img" aria-label={label} width={size} height={size} viewBox="0 0 300 300" fill="none" className="absolute inset-0">
-        <circle cx="150" cy="150" r="114" fill="var(--hoy-navy)" />
-        {(segments.length ? segments : [{ color: "var(--hoy-track)" }]).map((sg, i) => (
+        <circle cx="150" cy="150" r="114" fill="var(--navy)" />
+        {(segments.length ? segments : [{ color: "var(--card-2)" }]).map((sg, i) => (
           <circle
             key={i}
             cx="150"
@@ -132,7 +134,7 @@ export default async function TodayPage() {
   const doneSegments: RingSegment[] = [
     ...items.map((_, idx) => ({ color: SEGMENT_COLORS[idx % SEGMENT_COLORS.length] })),
     // Lo planificado hoy que aún no está hecho, en gris.
-    ...Array.from({ length: Math.max(plannedToday - items.length, 0) }, () => ({ color: "var(--hoy-track)" })),
+    ...Array.from({ length: Math.max(plannedToday - items.length, 0) }, () => ({ color: "var(--card-2)" })),
   ];
   const todoSegments: RingSegment[] = Array.from({ length: plannedToday }, (_, idx) => ({ color: SEGMENT_COLORS[idx % SEGMENT_COLORS.length], opacity: 0.4 }));
 
@@ -152,7 +154,7 @@ export default async function TodayPage() {
 
       <header className="flex items-end justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <p className="text-sm text-hoy-muted">
+          <p className="text-sm text-muted">
             {WEEKDAYS[wd]}, {d} de {MONTHS[m - 1].toLowerCase()}
           </p>
           <h1 className="font-display text-[30px] font-bold leading-[1.1] tracking-tight">
@@ -160,26 +162,29 @@ export default async function TodayPage() {
           </h1>
         </div>
         {day.planned.weekIndex !== null && day.planned.source !== "none" && (
-          <span className="inline-flex h-7 shrink-0 items-center rounded-full border border-hoy-line px-3 text-xs font-semibold text-hoy-muted">
+          <span className="inline-flex h-7 shrink-0 items-center rounded-full border border-line px-3 text-xs font-semibold text-muted">
             Semana {weekLetter(day.planned.weekIndex)}
           </span>
         )}
       </header>
 
       {open && (
-        <Link href={`/sesion/${open.id}`} className="flex items-center justify-between rounded-[20px] bg-hoy-blue p-4 text-white">
-          <span>
-            <span className="block text-xs opacity-80">Entrenamiento en curso</span>
-            <span className="font-semibold">{open.name}</span>
-          </span>
-          <span className="font-semibold">Continuar →</span>
-        </Link>
+        <div className="flex items-center gap-2 rounded-[20px] bg-accent p-2 pl-4 text-accent-fg">
+          <Link href={`/sesion/${open.id}`} className="flex min-w-0 flex-1 items-center justify-between gap-2 py-2">
+            <span className="min-w-0">
+              <span className="block text-xs opacity-80">Entrenamiento en curso</span>
+              <span className="block truncate font-semibold">{open.name}</span>
+            </span>
+            <span className="shrink-0 font-semibold">Continuar →</span>
+          </Link>
+          <DeleteWorkoutButton id={open.id} label={open.name} tone="onDark" />
+        </div>
       )}
 
       {done ? (
         <>
           <DayRing segments={doneSegments} size={280} label={`Hoy: ${items.map((i) => i.name).join(", ")}`}>
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.16em] text-hoy-periwinkle">
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.16em] text-periwinkle">
               <CheckIcon size={14} />
               HECHO HOY
             </span>
@@ -187,9 +192,9 @@ export default async function TodayPage() {
             <span className="text-sm text-[#c5ceea]">kcal · {totalMin} min</span>
           </DayRing>
 
-          <section aria-label="Actividad de hoy" className="flex flex-wrap items-center justify-between gap-x-3 rounded-[20px] border border-hoy-line bg-hoy-surface px-4 pb-1.5 pt-3.5">
+          <section aria-label="Actividad de hoy" className="flex flex-wrap items-center justify-between gap-x-3 rounded-[20px] border border-line bg-surface px-4 pb-1.5 pt-3.5">
             <h2 className="font-display text-[17px] font-bold">Hoy has hecho</h2>
-            <AddActivityToggle className="text-hoy-blue" label={<><PlusIcon />Añadir</>}>{activityForm}</AddActivityToggle>
+            <AddActivityToggle className="text-accent-text" label={<><PlusIcon />Añadir</>}>{activityForm}</AddActivityToggle>
             <div
               role="img"
               aria-label={`Reparto de kcal: ${items.map((i) => `${i.name} ${i.kcal}`).join(", ")}`}
@@ -205,14 +210,16 @@ export default async function TodayPage() {
             </div>
             <ul className="w-full">
               {items.map((i, idx) => (
-                <li key={i.key} className={cx("flex h-[42px] items-center gap-2.5", idx < items.length - 1 && "border-b border-hoy-line")}>
+                <li key={i.key} className={cx("flex h-[42px] items-center gap-2.5", idx < items.length - 1 && "border-b border-line")}>
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: SEGMENT_COLORS[idx % SEGMENT_COLORS.length] }} />
                   {i.kind === "session" ? (
-                    <Link href={`/sesion/${i.id}`} className="min-w-0 flex-1 truncate text-[15px] font-semibold hover:underline">{i.name}</Link>
+                    <Link href={withBackParams(`/sesion/${i.id}`, "/", "Hoy")} className="min-w-0 flex-1 truncate text-[15px] font-semibold hover:underline">
+                      {i.name}
+                    </Link>
                   ) : (
                     <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{i.name}</span>
                   )}
-                  <span className="shrink-0 text-sm text-hoy-muted tabular">{i.min} min · {i.kcal} kcal</span>
+                  <span className="shrink-0 text-sm text-muted tabular">{i.min} min · {i.kcal} kcal</span>
                   {i.kind === "session" ? <DeleteWorkoutButton id={i.id} label={i.name} /> : <DeleteActivityButton id={i.id} label={i.name} />}
                 </li>
               ))}
@@ -221,23 +228,20 @@ export default async function TodayPage() {
 
           {canStartRoutine && finishedSessions.length === 0 && routine && (
             <form action={startWorkout.bind(null, routine.id, today)}>
-              <button
-                type="submit"
-                className="flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-full border-[1.5px] border-hoy-line bg-card text-[15px] font-semibold transition hover:bg-hoy-surface"
-              >
+              <StartWorkoutButton className="flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-full border-[1.5px] border-line bg-card text-[15px] font-semibold transition hover:bg-surface">
                 <PlayIcon />
                 Empezar {routine.name}
-              </button>
+              </StartWorkoutButton>
             </form>
           )}
-          <div className="-mt-2 flex flex-wrap items-center justify-center gap-x-6 text-hoy-muted [&>button]:h-11 [&>button]:rounded-lg [&>button]:text-sm [&>button]:font-semibold [&>button]:text-hoy-muted">
-            <DayOverride date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions} dayLabel="hoy" hoy />
+          <div className="-mt-2 flex flex-wrap items-center justify-center gap-x-6 text-muted [&>button]:h-11 [&>button]:rounded-lg [&>button]:text-sm [&>button]:font-semibold [&>button]:text-muted">
+            <DayOverride date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions} dayLabel="hoy" />
           </div>
         </>
       ) : (
         <>
           <DayRing segments={todoSegments} size={300} label={`Hoy toca: ${heroTitle}`}>
-            <span className="text-xs font-semibold tracking-[0.16em] text-hoy-periwinkle">HOY TOCA</span>
+            <span className="text-xs font-semibold tracking-[0.16em] text-periwinkle">HOY TOCA</span>
             <span className={cx("font-display font-bold leading-none tracking-[-0.02em] text-white [overflow-wrap:anywhere]", heroTitleSize(heroTitle))}>
               {heroTitle}
             </span>
@@ -254,38 +258,32 @@ export default async function TodayPage() {
           <div className="space-y-1">
             {canStartRoutine && routine && (
               <form action={startWorkout.bind(null, routine.id, today)}>
-                <button
-                  type="submit"
-                  className="flex h-16 w-full cursor-pointer items-center justify-between rounded-full bg-hoy-blue pl-6 pr-2.5 text-lg font-bold text-white transition hover:brightness-110 active:scale-[.99]"
-                >
+                <StartWorkoutButton className="flex h-16 w-full cursor-pointer items-center justify-between rounded-full bg-accent pl-6 pr-2.5 text-lg font-bold text-accent-fg transition hover:brightness-110 active:scale-[.99]">
                   <span className="truncate">Empezar {routine.name}</span>
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-[#2f55f4]">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-accent">
                     <PlayIcon />
                   </span>
-                </button>
+                </StartWorkoutButton>
               </form>
             )}
             {canStartFree && (
               <form action={startWorkout.bind(null, null, today)}>
-                <button
-                  type="submit"
-                  className="flex h-16 w-full cursor-pointer items-center justify-between rounded-full bg-hoy-blue pl-6 pr-2.5 text-lg font-bold text-white transition hover:brightness-110 active:scale-[.99]"
-                >
+                <StartWorkoutButton className="flex h-16 w-full cursor-pointer items-center justify-between rounded-full bg-accent pl-6 pr-2.5 text-lg font-bold text-accent-fg transition hover:brightness-110 active:scale-[.99]">
                   Entrenar igualmente
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-[#2f55f4]">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-accent">
                     <PlayIcon />
                   </span>
-                </button>
+                </StartWorkoutButton>
               </form>
             )}
             {routine && routine.exercises.length === 0 && (
-              <p className="px-1 pb-1 text-center text-sm text-hoy-muted">
-                Rutina vacía. <Link className="font-semibold text-hoy-blue" href={`/rutinas/${routine.id}`}>Añade ejercicios</Link>
+              <p className="px-1 pb-1 text-center text-sm text-muted">
+                Rutina vacía. <Link className="font-semibold text-accent-text hover:underline" href={`/rutinas/${routine.id}`}>Añade ejercicios</Link>
               </p>
             )}
-            <div className="flex flex-wrap items-center justify-center gap-x-6 [&>button]:h-11 [&>button]:rounded-lg [&>button]:text-sm [&>button]:font-semibold [&>button]:text-hoy-muted">
-              <DayOverride date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions} dayLabel="hoy" hoy />
-              <AddActivityToggle className="text-hoy-muted">{activityForm}</AddActivityToggle>
+            <div className="flex flex-wrap items-center justify-center gap-x-6 [&>button]:h-11 [&>button]:rounded-lg [&>button]:text-sm [&>button]:font-semibold [&>button]:text-muted">
+              <DayOverride date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions} dayLabel="hoy" />
+              <AddActivityToggle className="text-muted">{activityForm}</AddActivityToggle>
             </div>
           </div>
         </>
@@ -293,43 +291,45 @@ export default async function TodayPage() {
 
       {day.planned.source === "none" && day.planned.weekIndex === null && (
         <Card className="rounded-[20px] p-4 text-sm">
-          Aún no tienes plan semanal. <Link href="/plan" className="font-semibold text-hoy-blue">Créalo aquí</Link> para que cada día te diga qué toca.
-          {routineOptions.length === 0 && <> Antes, <Link href="/rutinas" className="font-semibold text-hoy-blue">crea tus rutinas</Link>.</>}
+          Aún no tienes plan semanal. <Link href="/plan" className="font-semibold text-accent-text hover:underline">Créalo aquí</Link> para que cada día te diga qué toca.
+          {routineOptions.length === 0 && <> Antes, <Link href="/rutinas" className="font-semibold text-accent-text hover:underline">crea tus rutinas</Link>.</>}
         </Card>
       )}
 
       <div className="grid grid-cols-2 gap-2.5">
-        <div className="flex h-[140px] flex-col justify-between rounded-[26px] bg-hoy-tint p-[18px]">
-          <span className="text-[13px] font-semibold text-hoy-tint-ink">Esta semana</span>
+        <div className="flex h-[140px] flex-col justify-between rounded-[26px] bg-accent-soft p-[18px]">
+          <span className="text-[13px] font-semibold text-accent-ink">Esta semana</span>
           <div className="space-y-2.5">
             <span className="font-display text-[44px] font-bold leading-none tabular">
               {sum.done}
-              <span className="text-2xl text-hoy-tint-ink opacity-80">/{sum.planned}</span>
+              <span className="text-2xl text-accent-ink opacity-80">/{sum.planned}</span>
             </span>
             <span role="img" aria-label={`${sum.done} de ${sum.planned} entrenos hechos`} className="flex gap-[5px]">
               {Array.from({ length: Math.max(sum.planned, 1) }, (_, i) => (
-                <span key={i} className={cx("h-2 flex-1 rounded", i < sum.done ? "bg-hoy-navy" : "bg-hoy-track")} />
+                <span key={i} className={cx("h-2 flex-1 rounded", i < sum.done ? "bg-navy" : "bg-card-2")} />
               ))}
             </span>
           </div>
         </div>
-        <div className="flex h-[140px] flex-col justify-between rounded-[26px] bg-hoy-mint p-[18px]">
-          <span className="text-[13px] font-semibold text-hoy-mint-ink">Kcal semana</span>
+        <div className="flex h-[140px] flex-col justify-between rounded-[26px] bg-mint p-[18px]">
+          <span className="text-[13px] font-semibold text-mint-ink">Kcal semana</span>
           <div className="space-y-0.5">
             <span className="block font-display text-[44px] font-bold leading-none tabular">{sum.kcal.toLocaleString("es-ES")}</span>
-            <span className="block text-[13px] text-hoy-mint-ink">{sum.minutes} min entrenados</span>
+            <span className="block text-[13px] text-mint-ink">{sum.minutes} min entrenados</span>
           </div>
         </div>
       </div>
 
       {!done && (
-        <section aria-label="Plan de la semana" className="space-y-3.5 rounded-3xl border border-hoy-line bg-hoy-surface px-[18px] py-4">
+        <section aria-label="Plan de la semana" className="space-y-3.5 rounded-3xl border border-line bg-surface px-[18px] py-4">
           <div className="flex items-baseline justify-between">
             <h2 className="font-display text-[17px] font-bold">Plan de la semana</h2>
-            <Link href="/calendario" prefetch={true} className="-my-3.5 inline-flex h-11 items-center text-[13px] font-semibold text-hoy-blue">Ver calendario</Link>
+            <Link href="/calendario" prefetch={true} className="-my-3.5 inline-flex h-11 items-center text-[13px] font-semibold text-accent-text hover:underline">
+              Ver calendario
+            </Link>
           </div>
           <div className="relative">
-            <span aria-hidden="true" className="absolute inset-x-[17px] top-4 h-0 border-t-2 border-dashed border-hoy-line" />
+            <span aria-hidden="true" className="absolute inset-x-[17px] top-4 h-0 border-t-2 border-dashed border-line" />
             <div className="relative flex justify-between">
               {week.map((x, i) => {
                 const isDone = dayDone(x);
@@ -346,15 +346,15 @@ export default async function TodayPage() {
                       className={cx(
                         "flex h-[34px] w-[34px] items-center justify-center rounded-full",
                         isDone
-                          ? "bg-hoy-navy text-hoy-periwinkle"
+                          ? "bg-navy text-periwinkle"
                           : isToday && x.planned.kind !== "rest"
-                            ? "bg-hoy-blue text-white shadow-[0_0_0_4px_var(--hoy-tint)]"
-                            : "border-[1.5px] border-hoy-line bg-card text-hoy-muted/70",
+                            ? "bg-accent text-accent-fg shadow-[0_0_0_4px_var(--accent-soft)]"
+                            : "border-[1.5px] border-line bg-card text-muted/70",
                       )}
                     >
                       {isDone ? <CheckIcon size={15} /> : x.planned.kind === "rest" ? <MoonIcon size={15} /> : x.planned.kind === "workout" ? <DumbbellIcon size={17} strokeWidth={2.2} /> : <span className="text-sm leading-none" aria-hidden="true">{dayEmoji(x.planned).slice(0, 2)}</span>}
                     </span>
-                    <span className={cx("text-xs", isToday ? "font-bold text-hoy-blue" : "font-semibold text-hoy-muted")}>{WEEKDAYS_SHORT[i]}</span>
+                    <span className={cx("text-xs", isToday ? "font-bold text-accent-text" : "font-semibold text-muted")}>{WEEKDAYS_SHORT[i]}</span>
                   </Link>
                 );
               })}

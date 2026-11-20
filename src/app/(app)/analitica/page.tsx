@@ -8,6 +8,7 @@ import { completedSetsInRange, getCalendar, getEnergyDays } from "@/lib/data";
 import { addDays, diffDays, formatShort, startOfWeek, todayISO } from "@/lib/dates";
 import { baseDailyKcal, basalKcal, periodStart } from "@/lib/energy";
 import { MUSCLE_GROUPS, muscleGroup, type MuscleGroup } from "@/lib/labels";
+import { withBackParams } from "@/lib/navigation";
 import { epley1RM, weekStreak } from "@/lib/stats";
 import { summarizeDays } from "@/lib/week";
 
@@ -145,7 +146,11 @@ export default async function AnalyticsPage() {
             <tbody className="tabular">
               {topPrs.map(([id, p]) => (
                 <tr key={id} className="border-t border-line first:border-0">
-                  <td className="py-1.5"><Link className="hover:text-accent" href={`/ejercicios/${encodeURIComponent(id)}`}>{p.name}</Link></td>
+                  <td className="py-1.5">
+                    <Link className="transition-colors hover:text-accent-text" href={withBackParams(`/ejercicios/${encodeURIComponent(id)}`, "/analitica", "Analítica")}>
+                      {p.name}
+                    </Link>
+                  </td>
                   <td className="text-right text-xs text-muted">{p.weight} kg × {p.reps}</td>
                   <td className="w-20 text-right font-semibold">{p.oneRm} kg</td>
                 </tr>
