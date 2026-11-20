@@ -14,16 +14,28 @@ import {
 } from "@/lib/boot-loader";
 import { SessionLoadingScreen } from "./SessionLoadingScreen";
 
-const STEP_1_MS = 420;
-const STEP_2_MS = 860;
-const STEP_3_MIN_MS = 1280;
-const VICTORY_HOLD_MS = 380;
+const STEP_1_MS = 450;
+const STEP_2_MS = 920;
+const STEP_3_MIN_MS = 1380;
+const PWA_SPLASH_OFFSET_MS = 450;
+const VICTORY_HOLD_MS = 420;
 const FADE_OUT_MS = 320;
 const SAFETY_TIMEOUT_MS = 15000;
 
 type Phase = "visible" | "exiting" | "done";
 
 const noopSubscribe = () => () => {};
+
+function isStandalonePWA(): boolean {
+  try {
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true
+    );
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Se ejecuta únicamente una vez por sesión (al abrir sesión o entrar desde login/registro).
@@ -51,16 +63,20 @@ export function SessionBootOverlay() {
   useEffect(() => {
     if (alreadyBooted || phase !== "visible") return;
 
-    const now = Date.now();
     const loginStart = readSessionBootStart();
-    const elapsed = loginStart !== null ? Math.max(0, now - loginStart) : 0;
     const carriedSteps = readSessionBootSteps();
+    const pwaOffset = loginStart === null && isStandalonePWA() ? PWA_SPLASH_OFFSET_MS : 0;
 
     let routeReady = false;
     let step3MinElapsed = false;
     let finishing = false;
+    let disposed = false;
+    let started = false;
+    let raf1 = 0;
+    let raf2 = 0;
 
     const timers: ReturnType<typeof setTimeout>[] = [];
+    let observer: MutationObserver | null = null;
 
     const advanceTo = (n: number) => {
       writeSessionBootSteps(n);
@@ -68,12 +84,12 @@ export function SessionBootOverlay() {
     };
 
     const finishAllSteps = () => {
-      if (finishing) return;
+      if (disposed || finishing) return;
       finishing = true;
       advanceTo(3);
       timers.push(
         setTimeout(() => {
-          setPhase("exiting");
+          if (!disposed) setPhase("exiting");
         }, VICTORY_HOLD_MS),
       );
     };
@@ -92,47 +108,77 @@ export function SessionBootOverlay() {
       return ready;
     };
 
-    if (carriedSteps < 1) {
+    const startSequence = () => {
+      if (disposed || started) return;
+      started = true;
+
+      const elapsed = loginStart !== null ? Math.max(0, Date.now() - loginStart) : 0;
+
+      if (carriedSteps < 1) {
+        timers.push(
+          setTimeout(() => {
+            advanceTo(1);
+          }, Math.max(0, STEP_1_MS + pwaOffset - elapsed)),
+        );
+      }
+
+      if (carriedSteps < 2) {
+        timers.push(
+          setTimeout(() => {
+            advanceTo(2);
+          }, Math.max(carriedSteps >= 1 ? 180 : 120, STEP_2_MS + pwaOffset - elapsed)),
+        );
+      }
+
       timers.push(
         setTimeout(() => {
-          advanceTo(1);
-        }, Math.max(0, STEP_1_MS - elapsed)),
+          step3MinElapsed = true;
+          tryFinish();
+        }, Math.max(260, STEP_3_MIN_MS + pwaOffset - elapsed)),
       );
-    }
 
-    if (carriedSteps < 2) {
       timers.push(
         setTimeout(() => {
-          advanceTo(2);
-        }, Math.max(carriedSteps >= 1 ? 180 : 120, STEP_2_MS - elapsed)),
+          routeReady = true;
+          step3MinElapsed = true;
+          finishAllSteps();
+        }, SAFETY_TIMEOUT_MS),
       );
-    }
 
-    timers.push(
-      setTimeout(() => {
-        step3MinElapsed = true;
-        tryFinish();
-      }, Math.max(260, STEP_3_MIN_MS - elapsed)),
-    );
+      if (!checkRouteReady()) {
+        const target = document.querySelector("main") ?? document.body;
+        observer = new MutationObserver(() => {
+          if (checkRouteReady()) observer?.disconnect();
+        });
+        observer.observe(target, { childList: true, subtree: true });
+      }
+    };
 
-    timers.push(
-      setTimeout(() => {
-        routeReady = true;
-        step3MinElapsed = true;
-        finishAllSteps();
-      }, SAFETY_TIMEOUT_MS),
-    );
-
-    let observer: MutationObserver | null = null;
-    if (!checkRouteReady()) {
-      const target = document.querySelector("main") ?? document.body;
-      observer = new MutationObserver(() => {
-        if (checkRouteReady()) observer?.disconnect();
+    // Espera al primer pintado visible (evita que los checks se consuman ocultos tras el splash de Android/iOS).
+    const scheduleAfterPaint = () => {
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(startSequence);
       });
-      observer.observe(target, { childList: true, subtree: true });
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        document.removeEventListener("visibilitychange", onVisibility);
+        scheduleAfterPaint();
+      }
+    };
+
+    if (document.visibilityState === "visible") {
+      scheduleAfterPaint();
+    } else {
+      document.addEventListener("visibilitychange", onVisibility);
     }
 
     return () => {
+      disposed = true;
+      document.removeEventListener("visibilitychange", onVisibility);
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
       observer?.disconnect();
       timers.forEach(clearTimeout);
     };

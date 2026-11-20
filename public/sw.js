@@ -4,7 +4,7 @@
  * - Imágenes de ejercicios: caché primero.
  * Las Server Actions (POST) nunca se cachean; el cliente guarda sus cambios en cola local.
  */
-const VERSION = "v2";
+const VERSION = "v3";
 const PAGES = `pages-${VERSION}`;
 const STATIC = `static-${VERSION}`;
 const IMAGES = `images-${VERSION}`;
@@ -61,6 +61,9 @@ self.addEventListener("fetch", (event) => {
   }
   if (url.origin === self.location.origin && url.pathname.startsWith("/_next/static/")) {
     event.respondWith(cacheFirst(request, STATIC));
+    return;
+  }
+  if (url.origin === self.location.origin && /^\/(icon|apple-icon)/.test(url.pathname)) {
     return;
   }
   if (request.destination === "image" || url.hostname === "raw.githubusercontent.com") {
