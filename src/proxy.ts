@@ -5,6 +5,7 @@ const PUBLIC = ["/login", "/registro"];
 
 export async function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
+  if (pathname === "/boot") return NextResponse.next();
   const isPublic = PUBLIC.some((p) => pathname === p || pathname.startsWith(p + "/"));
   if (isPublic && searchParams.has("expired")) {
     const res = NextResponse.redirect(new URL(pathname, request.url));
