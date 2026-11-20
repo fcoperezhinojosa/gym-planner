@@ -1,7 +1,7 @@
 // Skeleton de Hoy: misma estructura que page.tsx para evitar saltos de layout.
 export default function Loading() {
   return (
-    <div className="animate-pulse space-y-5" aria-busy="true" aria-label="Cargando">
+    <div className="animate-pulse space-y-5" data-route-loading="true" aria-busy="true" aria-label="Cargando">
       <div className="flex items-end justify-between">
         <div className="space-y-2">
           <div className="h-4 w-44 rounded bg-card-2" />

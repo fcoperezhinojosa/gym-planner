@@ -1,9 +1,11 @@
 import { Suspense } from "react";
 import { Nav } from "@/components/Nav";
+import { SessionBootOverlay } from "@/components/SessionBootOverlay";
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <div className="min-h-dvh md:pl-56">
+      <SessionBootOverlay />
       <Suspense>
         <Nav />
       </Suspense>

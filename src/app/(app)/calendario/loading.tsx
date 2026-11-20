@@ -3,7 +3,7 @@ import { WEEKDAYS_SHORT } from "@/lib/labels";
 
 export default function CalendarLoading() {
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Cargando calendario">
+    <div className="space-y-4" data-route-loading="true" aria-busy="true" aria-label="Cargando calendario">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-2">
           <div className="h-7 w-40 animate-pulse rounded-lg bg-card-2" />

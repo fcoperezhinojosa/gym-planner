@@ -15,6 +15,7 @@ import { aggregateEnergy, basalKcal, energyVerdict, periodStart } from "../src/l
 import { isRedirectError, safeBackHref, safeBackLabel, withBackParams } from "../src/lib/navigation";
 import { EMPTY_PAUSE, computeElapsedSec, formatClock, pauseTimer, resumeTimer } from "../src/lib/session-timer";
 import { epley1RM, suggestWeight, weekStreak } from "../src/lib/stats";
+import { BOOT_STEPS, LOADER_VARIANT_COUNT, WELCOME_MESSAGES, pickBootConfig, resolveBootConfig } from "../src/lib/boot-loader";
 
 describe("propagate", () => {
   it("3x12 → cambiar una a 16 cambia todas", () => {
@@ -230,5 +231,38 @@ describe("cronómetro de sesión con pausa", () => {
     expect(formatClock(0)).toBe("0:00");
     expect(formatClock(65)).toBe("1:05");
     expect(formatClock(3661)).toBe("1:01:01");
+  });
+});
+
+describe("pantalla de carga aleatoria", () => {
+  it("mantiene 3 loaders, 12 checks y 4 mensajes motivadores", () => {
+    expect(LOADER_VARIANT_COUNT).toBe(3);
+    expect(BOOT_STEPS).toHaveLength(12);
+    expect(new Set(BOOT_STEPS.map((s) => s.doneLabel)).size).toBe(12);
+    expect(WELCOME_MESSAGES).toHaveLength(4);
+    expect(new Set(WELCOME_MESSAGES).size).toBe(4);
+  });
+
+  it("selecciona siempre 3 checks únicos, 1 loader y 1 mensaje válidos", () => {
+    for (let i = 0; i < 40; i++) {
+      const cfg = pickBootConfig();
+      expect([0, 1, 2]).toContain(cfg.variant);
+      expect(cfg.welcomeIndex).toBeGreaterThanOrEqual(0);
+      expect(cfg.welcomeIndex).toBeLessThan(WELCOME_MESSAGES.length);
+      expect(cfg.stepIndices).toHaveLength(3);
+      expect(new Set(cfg.stepIndices).size).toBe(3);
+
+      const resolved = resolveBootConfig(cfg);
+      expect(resolved.steps).toHaveLength(3);
+      expect(WELCOME_MESSAGES).toContain(resolved.welcomeMessage);
+    }
+  });
+
+  it("evita repetir el mismo loader y mensaje de la sesión anterior", () => {
+    for (let i = 0; i < 40; i++) {
+      const cfg = pickBootConfig(Math.random, { variant: 2, welcomeIndex: 1 });
+      expect(cfg.variant).not.toBe(2);
+      expect(cfg.welcomeIndex).not.toBe(1);
+    }
   });
 });

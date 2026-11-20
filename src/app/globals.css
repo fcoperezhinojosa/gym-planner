@@ -139,3 +139,621 @@ input[type="number"] {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* Pantalla de carga inicial de sesión (3 variantes aleatorias — Claro) */
+html[data-gp-booted="1"] .gp-boot-splash {
+  display: none !important;
+}
+
+.gp-boot-splash .gp-variant-slot {
+  display: none;
+}
+
+html:not([data-gp-variant]) .gp-boot-splash .gp-variant-2,
+html[data-gp-variant="0"] .gp-boot-splash .gp-variant-0,
+html[data-gp-variant="1"] .gp-boot-splash .gp-variant-1,
+html[data-gp-variant="2"] .gp-boot-splash .gp-variant-2 {
+  display: block;
+}
+
+/* Variante 0: Doble Bíceps */
+@keyframes gp-p1-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gp-p1-body {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  38%,
+  56% {
+    transform: translateY(-2.5px);
+  }
+}
+
+@keyframes gp-p1-arm {
+  0%,
+  100% {
+    transform: rotate(-7deg);
+  }
+  36%,
+  56% {
+    transform: rotate(6deg);
+  }
+  72% {
+    transform: rotate(-2deg);
+  }
+}
+
+@keyframes gp-p1-fore {
+  0%,
+  100% {
+    transform: rotate(-20deg);
+  }
+  34% {
+    transform: rotate(20deg);
+  }
+  44%,
+  56% {
+    transform: rotate(15deg);
+  }
+  76% {
+    transform: rotate(-12deg);
+  }
+}
+
+@keyframes gp-p1-bicep {
+  0%,
+  100% {
+    transform: scale(0.92, 0.72);
+  }
+  34% {
+    transform: scale(1.16, 1.52);
+  }
+  44%,
+  56% {
+    transform: scale(1.1, 1.38);
+  }
+  76% {
+    transform: scale(0.95, 0.82);
+  }
+}
+
+@keyframes gp-p1-sparks {
+  0%,
+  26%,
+  68%,
+  100% {
+    opacity: 0;
+    transform: scale(0.55) translateY(3px);
+  }
+  38% {
+    opacity: 1;
+    transform: scale(1.1) translateY(-2px);
+  }
+  54% {
+    opacity: 0.9;
+    transform: scale(1) translateY(-1px);
+  }
+}
+
+.gp-p1-ring {
+  animation: gp-p1-orbit 2.8s linear infinite;
+}
+
+.gp-p1-body {
+  animation: gp-p1-body 1.75s cubic-bezier(0.35, 0, 0.2, 1) infinite;
+}
+
+.gp-p1-arm {
+  animation: gp-p1-arm 1.75s cubic-bezier(0.35, 0, 0.2, 1) infinite;
+}
+
+.gp-p1-fore {
+  animation: gp-p1-fore 1.75s cubic-bezier(0.35, 0, 0.2, 1) infinite;
+}
+
+.gp-p1-bicep {
+  animation: gp-p1-bicep 1.75s cubic-bezier(0.35, 0, 0.2, 1) infinite;
+}
+
+.gp-p1-sparks {
+  animation: gp-p1-sparks 1.75s ease-out infinite;
+}
+
+/* Variante 1: Press Militar (cinemática inversa 2 huesos) */
+@keyframes gp-p2-body {
+  0% {
+    transform: translateY(0px);
+  }
+  10% {
+    transform: translateY(3.5px);
+  }
+  20% {
+    transform: translateY(0px);
+  }
+  30% {
+    transform: translateY(-1.5px);
+  }
+  40% {
+    transform: translateY(-2px);
+  }
+  48% {
+    transform: translateY(-1px);
+  }
+  64% {
+    transform: translateY(-1px);
+  }
+  76% {
+    transform: translateY(0px);
+  }
+  88% {
+    transform: translateY(0.5px);
+  }
+  94% {
+    transform: translateY(1.5px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+@keyframes gp-p2-bar {
+  0% {
+    transform: translateY(0px);
+  }
+  10% {
+    transform: translateY(3.5px);
+  }
+  20% {
+    transform: translateY(-10px);
+  }
+  30% {
+    transform: translateY(-27.5px);
+  }
+  40% {
+    transform: translateY(-41px);
+  }
+  48% {
+    transform: translateY(-37px);
+  }
+  64% {
+    transform: translateY(-37px);
+  }
+  76% {
+    transform: translateY(-20px);
+  }
+  88% {
+    transform: translateY(-3.5px);
+  }
+  94% {
+    transform: translateY(2.5px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+@keyframes gp-p2-upper {
+  0% {
+    transform: rotate(108.6deg);
+  }
+  10% {
+    transform: rotate(108.6deg);
+  }
+  20% {
+    transform: rotate(148.6deg);
+  }
+  30% {
+    transform: rotate(193.9deg);
+  }
+  40% {
+    transform: rotate(230.6deg);
+  }
+  48% {
+    transform: rotate(220.1deg);
+  }
+  64% {
+    transform: rotate(220.1deg);
+  }
+  76% {
+    transform: rotate(178.7deg);
+  }
+  88% {
+    transform: rotate(125.3deg);
+  }
+  94% {
+    transform: rotate(104.5deg);
+  }
+  100% {
+    transform: rotate(108.6deg);
+  }
+}
+
+@keyframes gp-p2-fore {
+  0% {
+    transform: rotate(142.9deg);
+  }
+  10% {
+    transform: rotate(142.9deg);
+  }
+  20% {
+    transform: rotate(134deg);
+  }
+  30% {
+    transform: rotate(95.7deg);
+  }
+  40% {
+    transform: rotate(39.3deg);
+  }
+  48% {
+    transform: rotate(57.2deg);
+  }
+  64% {
+    transform: rotate(57.2deg);
+  }
+  76% {
+    transform: rotate(112.6deg);
+  }
+  88% {
+    transform: rotate(141.4deg);
+  }
+  94% {
+    transform: rotate(142.8deg);
+  }
+  100% {
+    transform: rotate(142.9deg);
+  }
+}
+
+@keyframes gp-p2-legs {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  10% {
+    transform: scaleY(0.87);
+  }
+  20% {
+    transform: scaleY(1);
+  }
+  40%,
+  64% {
+    transform: scaleY(1.04);
+  }
+  94% {
+    transform: scaleY(0.94);
+  }
+}
+
+@keyframes gp-p2-sparks {
+  0%,
+  34%,
+  68%,
+  100% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.7);
+  }
+  42% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.08);
+  }
+  58% {
+    opacity: 0.75;
+    transform: translateY(0px) scale(1);
+  }
+}
+
+@keyframes gp-p2-ring {
+  0%,
+  100% {
+    stroke-dashoffset: 310;
+    opacity: 0.55;
+  }
+  42%,
+  62% {
+    stroke-dashoffset: 110;
+    opacity: 1;
+  }
+}
+
+.gp-p2-body {
+  animation: gp-p2-body 2.1s linear infinite;
+}
+
+.gp-p2-bar {
+  animation: gp-p2-bar 2.1s linear infinite;
+}
+
+.gp-p2-upper {
+  animation: gp-p2-upper 2.1s linear infinite;
+}
+
+.gp-p2-fore {
+  animation: gp-p2-fore 2.1s linear infinite;
+}
+
+.gp-p2-legs {
+  animation: gp-p2-legs 2.1s linear infinite;
+}
+
+.gp-p2-sparks {
+  animation: gp-p2-sparks 2.1s ease-out infinite;
+}
+
+.gp-p2-ring {
+  animation: gp-p2-ring 2.1s ease-in-out infinite;
+}
+
+/* Variante 2: Brazo de Hierro */
+@keyframes gp-arm-trace {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -476;
+  }
+}
+
+@keyframes gp-arm-curl {
+  0%,
+  100% {
+    transform: rotate(-22deg);
+  }
+  42% {
+    transform: rotate(24deg);
+  }
+  52%,
+  62% {
+    transform: rotate(19deg);
+  }
+  82% {
+    transform: rotate(-14deg);
+  }
+}
+
+@keyframes gp-arm-bicep {
+  0%,
+  100% {
+    transform: scale(0.92, 0.72);
+  }
+  42% {
+    transform: scale(1.13, 1.44);
+  }
+  52%,
+  62% {
+    transform: scale(1.08, 1.32);
+  }
+  82% {
+    transform: scale(0.96, 0.84);
+  }
+}
+
+@keyframes gp-arm-sparks {
+  0%,
+  34%,
+  72%,
+  100% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  58% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+}
+
+@keyframes gp-arm-badge {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  44% {
+    transform: scale(1.028);
+  }
+  60% {
+    transform: scale(1);
+  }
+}
+
+.gp-arm-trace {
+  animation: gp-arm-trace 2.6s linear infinite;
+}
+
+.gp-arm-curl {
+  animation: gp-arm-curl 1.85s cubic-bezier(0.36, 0, 0.2, 1) infinite;
+}
+
+.gp-arm-bicep {
+  animation: gp-arm-bicep 1.85s cubic-bezier(0.36, 0, 0.2, 1) infinite;
+}
+
+.gp-arm-sparks {
+  animation: gp-arm-sparks 1.85s ease-out infinite;
+}
+
+.gp-arm-badge {
+  animation: gp-arm-badge 1.85s ease-in-out infinite;
+}
+
+/* Animaciones de checks y mensaje motivador */
+@keyframes gp-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gp-check-pop {
+  0% {
+    transform: scale(0.45) rotate(-14deg);
+    opacity: 0.4;
+  }
+  55% {
+    transform: scale(1.22) rotate(5deg);
+    opacity: 1;
+  }
+  80% {
+    transform: scale(0.93) rotate(-2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes gp-check-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes gp-check-ripple {
+  0% {
+    transform: scale(0.75);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(1.95);
+    opacity: 0;
+  }
+}
+
+@keyframes gp-step-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gp-row-nudge {
+  0% {
+    transform: translateX(0);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes gp-emoji-pop {
+  0% {
+    transform: scale(0.3) rotate(-18deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.25) rotate(8deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.gp-fade-up {
+  animation: gp-fade-up 280ms ease-out both;
+}
+
+.gp-check-pop {
+  animation: gp-check-pop 440ms cubic-bezier(0.22, 1.4, 0.36, 1) both;
+}
+
+.gp-check-draw {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: gp-check-draw 280ms ease-out 100ms forwards;
+}
+
+.gp-check-ripple {
+  animation: gp-check-ripple 540ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.gp-step-spin {
+  animation: gp-step-spin 0.85s linear infinite;
+}
+
+.gp-row-nudge {
+  animation: gp-row-nudge 340ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.gp-emoji-pop {
+  animation: gp-emoji-pop 460ms cubic-bezier(0.22, 1.4, 0.36, 1) 80ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gp-p1-ring,
+  .gp-p1-body,
+  .gp-p1-arm,
+  .gp-p1-fore,
+  .gp-p1-bicep,
+  .gp-p1-sparks,
+  .gp-p2-body,
+  .gp-p2-bar,
+  .gp-p2-upper,
+  .gp-p2-fore,
+  .gp-p2-legs,
+  .gp-p2-sparks,
+  .gp-p2-ring,
+  .gp-arm-trace,
+  .gp-arm-curl,
+  .gp-arm-bicep,
+  .gp-arm-sparks,
+  .gp-arm-badge,
+  .gp-fade-up,
+  .gp-check-pop,
+  .gp-check-draw,
+  .gp-check-ripple,
+  .gp-step-spin,
+  .gp-row-nudge,
+  .gp-emoji-pop {
+    animation: none;
+  }
+  .gp-p1-fore {
+    transform: rotate(15deg);
+  }
+  .gp-p1-bicep {
+    transform: scale(1.08, 1.32);
+  }
+  .gp-p2-upper {
+    transform: rotate(220.1deg);
+  }
+  .gp-p2-fore {
+    transform: rotate(57.2deg);
+  }
+  .gp-p2-bar {
+    transform: translateY(-37px);
+  }
+  .gp-arm-curl {
+    transform: rotate(16deg);
+  }
+  .gp-arm-bicep {
+    transform: scale(1.06, 1.28);
+  }
+  .gp-p1-sparks,
+  .gp-p2-sparks,
+  .gp-arm-sparks {
+    opacity: 0.85;
+  }
+  .gp-check-draw {
+    stroke-dashoffset: 0;
+  }
+}
