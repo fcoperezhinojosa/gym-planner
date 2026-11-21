@@ -20,11 +20,8 @@ import {
 import { isSex } from "@/lib/energy";
 import { normalizeSlot } from "@/lib/schedule";
 import { generateToken } from "@/lib/api-tokens";
-import { lastSetsByExercise, userCacheTag } from "@/lib/data";
-
-function invalidateUser(userId: number) {
-  updateTag(userCacheTag(userId));
-}
+import { cacheTags } from "@/lib/cache-tags";
+import { lastSetsByExercise } from "@/lib/data";
 
 export type FormState = { error?: string; ok?: boolean } | undefined;
 
@@ -89,8 +86,7 @@ export async function updateProfile(_: FormState, form: FormData): Promise<FormS
   const defaultRestSeconds = clamp(Math.round(num(form.get("defaultRestSeconds"), 60)), 0, 600);
   const db = await getDb();
   await db.update(s.users).set({ name, bodyWeightKg, sex, birthYear, heightCm, dailyIntakeKcal, defaultRestSeconds }).where(eq(s.users.id, user.id));
-  updateTag(`user-profile:${user.id}`);
-  invalidateUser(user.id);
+  updateTag(cacheTags.userProfile(user.id));
   refresh();
   return { ok: true };
 }
@@ -127,7 +123,11 @@ async function ownSession(userId: number, sessionId: number) {
 async function findOwnedSessionExercise(userId: number, seId: number) {
   const db = await getDb();
   const [r] = await db
-    .select({ id: s.sessionExercises.id, sessionId: s.sessionExercises.sessionId })
+    .select({
+      id: s.sessionExercises.id,
+      sessionId: s.sessionExercises.sessionId,
+      endedAt: s.workoutSessions.endedAt,
+    })
     .from(s.sessionExercises)
     .innerJoin(s.workoutSessions, eq(s.workoutSessions.id, s.sessionExercises.sessionId))
     .where(and(eq(s.sessionExercises.id, seId), eq(s.workoutSessions.userId, userId)));
@@ -155,7 +155,8 @@ export async function createRoutine(form: FormData) {
   const color = /^#[0-9a-f]{6}$/i.test(str(form.get("color"))) ? str(form.get("color")) : DEFAULT_ROUTINE_COLOR;
   const db = await getDb();
   const [r] = await db.insert(s.routines).values({ userId: user.id, name, color }).returning({ id: s.routines.id });
-  invalidateUser(user.id);
+  updateTag(cacheTags.routines(user.id));
+  updateTag(cacheTags.routineOptions(user.id));
   redirect(`/rutinas/${r.id}`);
 }
 
@@ -168,23 +169,37 @@ export async function updateRoutine(routineId: number, data: { name?: string; co
   if (data.color && /^#[0-9a-f]{6}$/i.test(data.color)) patch.color = data.color;
   if (data.notes !== undefined) patch.notes = data.notes.slice(0, 2000);
   if (Object.keys(patch).length) await db.update(s.routines).set(patch).where(eq(s.routines.id, routineId));
-  invalidateUser(user.id);
+  updateTag(cacheTags.routine(routineId));
+  updateTag(cacheTags.routines(user.id));
+  if (patch.name !== undefined || patch.color !== undefined) {
+    updateTag(cacheTags.routineOptions(user.id));
+    updateTag(cacheTags.calendar(user.id));
+  }
   refresh();
 }
 
 export async function deleteRoutine(routineId: number) {
   const user = await requireUser();
   const db = await getDb();
+  const affectedSessions = await db
+    .select({ id: s.workoutSessions.id })
+    .from(s.workoutSessions)
+    .where(and(eq(s.workoutSessions.userId, user.id), eq(s.workoutSessions.routineId, routineId)));
   await db.delete(s.routines).where(and(eq(s.routines.id, routineId), eq(s.routines.userId, user.id)));
-  invalidateUser(user.id);
+  updateTag(cacheTags.routine(routineId));
+  updateTag(cacheTags.routines(user.id));
+  updateTag(cacheTags.routineOptions(user.id));
+  updateTag(cacheTags.plan(user.id));
+  updateTag(cacheTags.calendar(user.id));
+  for (const sess of affectedSessions) updateTag(cacheTags.session(sess.id));
   redirect("/rutinas", RedirectType.replace);
 }
 
 export async function duplicateRoutine(routineId: number) {
   const user = await requireUser();
-  await ownRoutine(user.id, routineId);
   const db = await getDb();
-  const [src] = await db.select().from(s.routines).where(eq(s.routines.id, routineId));
+  const [src] = await db.select().from(s.routines).where(and(eq(s.routines.id, routineId), eq(s.routines.userId, user.id)));
+  if (!src) throw new Error("Rutina no encontrada");
   const [copy] = await db
     .insert(s.routines)
     .values({ userId: user.id, name: `${src.name} (copia)`, color: src.color, notes: src.notes })
@@ -194,55 +209,74 @@ export async function duplicateRoutine(routineId: number) {
     .from(s.routineExercises)
     .where(eq(s.routineExercises.routineId, routineId))
     .orderBy(asc(s.routineExercises.position), asc(s.routineExercises.id));
-  const allSets = exs.length
-    ? await db
+  if (exs.length) {
+    const [allSets, insertedExs] = await Promise.all([
+      db
         .select()
         .from(s.routineSets)
         .where(inArray(s.routineSets.routineExerciseId, exs.map((e) => e.id)))
-        .orderBy(asc(s.routineSets.position), asc(s.routineSets.id))
-    : [];
-  const setsByEx = new Map<number, typeof allSets>();
-  for (const x of allSets) {
-    const arr = setsByEx.get(x.routineExerciseId);
-    if (arr) arr.push(x);
-    else setsByEx.set(x.routineExerciseId, [x]);
+        .orderBy(asc(s.routineSets.position), asc(s.routineSets.id)),
+      db
+        .insert(s.routineExercises)
+        .values(exs.map((e) => ({ routineId: copy.id, exerciseId: e.exerciseId, position: e.position, restSeconds: e.restSeconds, notes: e.notes })))
+        .returning({ id: s.routineExercises.id }),
+    ]);
+    const setsByEx = new Map<number, typeof allSets>();
+    for (const x of allSets) {
+      const arr = setsByEx.get(x.routineExerciseId);
+      if (arr) arr.push(x);
+      else setsByEx.set(x.routineExerciseId, [x]);
+    }
+    const setRows = exs.flatMap((e, idx) => {
+      const routineExerciseId = insertedExs[idx].id;
+      return (setsByEx.get(e.id) ?? []).map((x, k) => ({
+        routineExerciseId,
+        position: k,
+        reps: x.reps,
+        weightKg: x.weightKg,
+        type: x.type,
+      }));
+    });
+    if (setRows.length) await db.insert(s.routineSets).values(setRows);
   }
-  for (const e of exs) {
-    const [ne] = await db
-      .insert(s.routineExercises)
-      .values({ routineId: copy.id, exerciseId: e.exerciseId, position: e.position, restSeconds: e.restSeconds, notes: e.notes })
-      .returning({ id: s.routineExercises.id });
-    const sets = setsByEx.get(e.id);
-    if (sets?.length)
-      await db.insert(s.routineSets).values(sets.map((x, k) => ({ routineExerciseId: ne.id, position: k, reps: x.reps, weightKg: x.weightKg, type: x.type })));
-  }
-  invalidateUser(user.id);
+  updateTag(cacheTags.routines(user.id));
+  updateTag(cacheTags.routineOptions(user.id));
   redirect(`/rutinas/${copy.id}`);
 }
 
 export async function addExercisesToRoutine(routineId: number, exerciseIds: string[]) {
   const user = await requireUser();
   await ownRoutine(user.id, routineId);
+  const ids = exerciseIds.slice(0, 30);
+  if (!ids.length) return;
   const db = await getDb();
-  const [{ m }] = await db.select({ m: max(s.routineExercises.position) }).from(s.routineExercises).where(eq(s.routineExercises.routineId, routineId));
-  let pos = (m ?? -1) + 1;
-  const last = await lastSetsByExercise(user.id, exerciseIds);
-  for (const exerciseId of exerciseIds.slice(0, 30)) {
-    const [re] = await db.insert(s.routineExercises).values({ routineId, exerciseId, position: pos++, restSeconds: user.defaultRestSeconds }).returning({ id: s.routineExercises.id });
+  const [[{ m }], last] = await Promise.all([
+    db.select({ m: max(s.routineExercises.position) }).from(s.routineExercises).where(eq(s.routineExercises.routineId, routineId)),
+    lastSetsByExercise(user.id, ids),
+  ]);
+  const startPos = (m ?? -1) + 1;
+  const inserted = await db
+    .insert(s.routineExercises)
+    .values(ids.map((exerciseId, i) => ({ routineId, exerciseId, position: startPos + i, restSeconds: user.defaultRestSeconds })))
+    .returning({ id: s.routineExercises.id });
+  const setRows = ids.flatMap((exerciseId, idx) => {
     const prev = last.get(exerciseId)?.sets;
     const sets = prev?.length ? prev.map((x) => ({ reps: x.reps, weightKg: x.weightKg })) : [0, 1, 2].map(() => ({ reps: 10, weightKg: 0 }));
-    await db.insert(s.routineSets).values(sets.map((x, i) => ({ routineExerciseId: re.id, position: i, reps: x.reps, weightKg: x.weightKg })));
-  }
-  invalidateUser(user.id);
+    return sets.map((x, k) => ({ routineExerciseId: inserted[idx].id, position: k, reps: x.reps, weightKg: x.weightKg }));
+  });
+  if (setRows.length) await db.insert(s.routineSets).values(setRows);
+  updateTag(cacheTags.routine(routineId));
+  updateTag(cacheTags.routines(user.id));
   refresh();
 }
 
 export async function removeRoutineExercise(reId: number) {
   const user = await requireUser();
-  await ownRoutineExercise(user.id, reId);
+  const { routineId } = await ownRoutineExercise(user.id, reId);
   const db = await getDb();
   await db.delete(s.routineExercises).where(eq(s.routineExercises.id, reId));
-  invalidateUser(user.id);
+  updateTag(cacheTags.routine(routineId));
+  updateTag(cacheTags.routines(user.id));
   refresh();
 }
 
@@ -255,21 +289,29 @@ export async function moveRoutineExercise(reId: number, dir: -1 | 1) {
   const j = i + dir;
   if (i < 0 || j < 0 || j >= list.length) return;
   [list[i], list[j]] = [list[j], list[i]];
-  for (let k = 0; k < list.length; k++) await db.update(s.routineExercises).set({ position: k }).where(eq(s.routineExercises.id, list[k].id));
-  invalidateUser(user.id);
+  const updates = list.map((x, k) => ({ id: x.id, pos: k })).filter((u, k) => list[k].position !== u.pos);
+  if (updates.length) {
+    const cases = updates.map((u) => sql`when ${u.id}::int then ${u.pos}::int`);
+    await db
+      .update(s.routineExercises)
+      .set({ position: sql`case ${s.routineExercises.id} ${sql.join(cases, sql` `)} end` })
+      .where(inArray(s.routineExercises.id, updates.map((u) => u.id)));
+  }
+  updateTag(cacheTags.routine(routineId));
   refresh();
 }
 
 export async function saveRoutineSets(reId: number, sets: SetInput[], restSeconds?: number) {
   const user = await requireUser();
-  await ownRoutineExercise(user.id, reId);
+  const { routineId } = await ownRoutineExercise(user.id, reId);
   const db = await getDb();
   await db.delete(s.routineSets).where(eq(s.routineSets.routineExerciseId, reId));
   const rows = cleanSets(sets).map((x) => ({ position: x.position, reps: x.reps, weightKg: x.weightKg, type: x.type, routineExerciseId: reId }));
   if (rows.length) await db.insert(s.routineSets).values(rows);
   if (restSeconds !== undefined)
     await db.update(s.routineExercises).set({ restSeconds: clamp(Math.round(restSeconds), 0, 900) }).where(eq(s.routineExercises.id, reId));
-  invalidateUser(user.id);
+  updateTag(cacheTags.routine(routineId));
+  updateTag(cacheTags.routines(user.id));
 }
 
 /* ───────────── Plan ───────────── */
@@ -287,7 +329,8 @@ export async function savePlan(form: FormData) {
   } else {
     await db.insert(s.plans).values({ userId: user.id, name, startDate, cycleWeeks });
   }
-  invalidateUser(user.id);
+  updateTag(cacheTags.plan(user.id));
+  updateTag(cacheTags.calendar(user.id));
   refresh();
 }
 
@@ -329,7 +372,8 @@ export async function setPlanDay(weekIndex: number, weekday: number, slot: SlotI
     .insert(s.planDays)
     .values({ planId: plan.id, weekIndex, weekday, ...v })
     .onConflictDoUpdate({ target: [s.planDays.planId, s.planDays.weekIndex, s.planDays.weekday], set: v });
-  invalidateUser(user.id);
+  updateTag(cacheTags.plan(user.id));
+  updateTag(cacheTags.calendar(user.id));
   refresh();
 }
 
@@ -346,7 +390,7 @@ export async function setOverride(date: string, slot: SlotInput | null) {
       .values({ userId: user.id, date, ...v })
       .onConflictDoUpdate({ target: [s.calendarOverrides.userId, s.calendarOverrides.date], set: v });
   }
-  invalidateUser(user.id);
+  updateTag(cacheTags.calendar(user.id));
   refresh();
 }
 
@@ -374,17 +418,22 @@ async function copySessionExercisesToRoutine(db: DB, sessionId: number, targetRo
   if (replaceExisting) {
     await db.delete(s.routineExercises).where(eq(s.routineExercises.routineId, targetRoutineId));
   }
-  for (let i = 0; i < sessionExs.length; i++) {
-    const se = sessionExs[i];
-    const [re] = await db
-      .insert(s.routineExercises)
-      .values({ routineId: targetRoutineId, exerciseId: se.exerciseId, position: i, restSeconds: se.restSeconds })
-      .returning({ id: s.routineExercises.id });
-    const sets = setsByEx.get(se.id);
-    if (sets?.length) {
-      await db.insert(s.routineSets).values(sets.map((x, k) => ({ routineExerciseId: re.id, position: k, reps: x.reps, weightKg: x.weightKg, type: x.type })));
-    }
-  }
+  if (!sessionExs.length) return;
+  const insertedExs = await db
+    .insert(s.routineExercises)
+    .values(sessionExs.map((se, i) => ({ routineId: targetRoutineId, exerciseId: se.exerciseId, position: i, restSeconds: se.restSeconds })))
+    .returning({ id: s.routineExercises.id });
+  const setRows = sessionExs.flatMap((se, idx) => {
+    const routineExerciseId = insertedExs[idx].id;
+    return (setsByEx.get(se.id) ?? []).map((x, k) => ({
+      routineExerciseId,
+      position: k,
+      reps: x.reps,
+      weightKg: x.weightKg,
+      type: x.type,
+    }));
+  });
+  if (setRows.length) await db.insert(s.routineSets).values(setRows);
 }
 
 async function createRoutineCopyFromSession(db: DB, userId: number, session: { id: number; routineId: number | null }, name: string) {
@@ -421,6 +470,7 @@ export async function startWorkout(routineId: number | null, date?: string) {
 
   let name = "Entrenamiento libre";
   let template: { exerciseId: string; restSeconds: number; sets: { reps: number; weightKg: number; type: string }[] }[] = [];
+  let last = new Map<string, { date: string; sets: { reps: number; weightKg: number; completed: boolean }[] }>();
   if (routineId) {
     const [r] = await db.select().from(s.routines).where(and(eq(s.routines.id, routineId), eq(s.routines.userId, user.id)));
     if (!r) throw new Error("Rutina no encontrada");
@@ -430,49 +480,72 @@ export async function startWorkout(routineId: number | null, date?: string) {
       .from(s.routineExercises)
       .where(eq(s.routineExercises.routineId, routineId))
       .orderBy(asc(s.routineExercises.position), asc(s.routineExercises.id));
-    const sets = exs.length
-      ? await db.select().from(s.routineSets).where(inArray(s.routineSets.routineExerciseId, exs.map((e) => e.id))).orderBy(asc(s.routineSets.position))
-      : [];
-    template = exs.map((e) => ({
-      exerciseId: e.exerciseId,
-      restSeconds: e.restSeconds,
-      sets: sets.filter((x) => x.routineExerciseId === e.id),
-    }));
+    if (exs.length) {
+      const [sets, lastMap] = await Promise.all([
+        db.select().from(s.routineSets).where(inArray(s.routineSets.routineExerciseId, exs.map((e) => e.id))).orderBy(asc(s.routineSets.position)),
+        lastSetsByExercise(user.id, exs.map((e) => e.exerciseId)),
+      ]);
+      last = lastMap;
+      const setsByEx = new Map<number, typeof sets>();
+      for (const x of sets) {
+        const arr = setsByEx.get(x.routineExerciseId);
+        if (arr) arr.push(x);
+        else setsByEx.set(x.routineExerciseId, [x]);
+      }
+      template = exs.map((e) => ({
+        exerciseId: e.exerciseId,
+        restSeconds: e.restSeconds,
+        sets: setsByEx.get(e.id) ?? [],
+      }));
+    }
   }
-  const last = await lastSetsByExercise(user.id, template.map((t) => t.exerciseId));
   const [session] = await db.insert(s.workoutSessions).values({ userId: user.id, routineId, name, date: day }).returning({ id: s.workoutSessions.id });
-  for (let i = 0; i < template.length; i++) {
-    const t = template[i];
-    const [se] = await db
+  if (template.length) {
+    const insertedExs = await db
       .insert(s.sessionExercises)
-      .values({ sessionId: session.id, exerciseId: t.exerciseId, position: i, restSeconds: t.restSeconds })
+      .values(template.map((t, i) => ({ sessionId: session.id, exerciseId: t.exerciseId, position: i, restSeconds: t.restSeconds })))
       .returning({ id: s.sessionExercises.id });
     // Prellenado: mismo nº de series que la plantilla; pesos/reps de la última vez si existen.
-    const prev = last.get(t.exerciseId)?.sets ?? [];
-    const rows = t.sets.map((x, k) => {
-      const p = prev[k] ?? prev[prev.length - 1];
-      return { sessionExerciseId: se.id, position: k, reps: p?.reps ?? x.reps, weightKg: p?.weightKg ?? x.weightKg, type: x.type };
+    const setRows = template.flatMap((t, idx) => {
+      const prev = last.get(t.exerciseId)?.sets ?? [];
+      const sessionExerciseId = insertedExs[idx].id;
+      return t.sets.map((x, k) => {
+        const p = prev[k] ?? prev[prev.length - 1];
+        return { sessionExerciseId, position: k, reps: p?.reps ?? x.reps, weightKg: p?.weightKg ?? x.weightKg, type: x.type };
+      });
     });
-    if (rows.length) await db.insert(s.sessionSets).values(rows);
+    if (setRows.length) await db.insert(s.sessionSets).values(setRows);
   }
-  invalidateUser(user.id);
+  updateTag(cacheTags.openSession(user.id));
+  updateTag(cacheTags.calendar(user.id));
+  updateTag(cacheTags.plan(user.id));
+  updateTag(cacheTags.session(session.id));
   redirect(`/sesion/${session.id}`);
 }
 
 export async function addExercisesToSession(sessionId: number, exerciseIds: string[]) {
   const user = await requireUser();
   await ownSession(user.id, sessionId);
+  const ids = exerciseIds.slice(0, 30);
+  if (!ids.length) return;
   const db = await getDb();
-  const [{ m }] = await db.select({ m: max(s.sessionExercises.position) }).from(s.sessionExercises).where(eq(s.sessionExercises.sessionId, sessionId));
-  let pos = (m ?? -1) + 1;
-  const last = await lastSetsByExercise(user.id, exerciseIds, sessionId);
-  for (const exerciseId of exerciseIds.slice(0, 30)) {
-    const [se] = await db.insert(s.sessionExercises).values({ sessionId, exerciseId, position: pos++, restSeconds: user.defaultRestSeconds }).returning({ id: s.sessionExercises.id });
+  const [[{ m }], last] = await Promise.all([
+    db.select({ m: max(s.sessionExercises.position) }).from(s.sessionExercises).where(eq(s.sessionExercises.sessionId, sessionId)),
+    lastSetsByExercise(user.id, ids, sessionId),
+  ]);
+  const startPos = (m ?? -1) + 1;
+  const inserted = await db
+    .insert(s.sessionExercises)
+    .values(ids.map((exerciseId, i) => ({ sessionId, exerciseId, position: startPos + i, restSeconds: user.defaultRestSeconds })))
+    .returning({ id: s.sessionExercises.id });
+  const setRows = ids.flatMap((exerciseId, idx) => {
     const prev = last.get(exerciseId)?.sets;
     const sets = prev?.length ? prev : [0, 1, 2].map(() => ({ reps: 10, weightKg: 0 }));
-    await db.insert(s.sessionSets).values(sets.map((x, i) => ({ sessionExerciseId: se.id, position: i, reps: x.reps, weightKg: x.weightKg })));
-  }
-  invalidateUser(user.id);
+    return sets.map((x, k) => ({ sessionExerciseId: inserted[idx].id, position: k, reps: x.reps, weightKg: x.weightKg }));
+  });
+  if (setRows.length) await db.insert(s.sessionSets).values(setRows);
+  updateTag(cacheTags.plan(user.id));
+  updateTag(cacheTags.calendar(user.id));
   refresh();
 }
 
@@ -483,7 +556,8 @@ export async function removeSessionExercise(seId: number) {
     const db = await getDb();
     await db.delete(s.sessionExercises).where(eq(s.sessionExercises.id, seId));
   }
-  invalidateUser(user.id);
+  updateTag(cacheTags.plan(user.id));
+  updateTag(cacheTags.calendar(user.id));
   refresh();
 }
 
@@ -495,7 +569,9 @@ export async function saveSessionSets(seId: number, sets: SetInput[]): Promise<{
   await db.delete(s.sessionSets).where(eq(s.sessionSets.sessionExerciseId, seId));
   const rows = cleanSets(sets).map((x) => ({ ...x, sessionExerciseId: seId }));
   if (rows.length) await db.insert(s.sessionSets).values(rows);
-  invalidateUser(user.id);
+  updateTag(cacheTags.session(owned.sessionId));
+  updateTag(cacheTags.openSession(user.id));
+  updateTag(cacheTags.analytics(user.id));
   return { ok: true };
 }
 
@@ -568,16 +644,31 @@ export async function finishWorkout(
       else setsByEx.set(x.sessionExerciseId, [x]);
     }
     const routineByEx = new Map(res.map((r) => [r.exerciseId, r]));
+    const targetSetsByReId = new Map<number, typeof allSets>();
     for (const se of detail) {
       const re = routineByEx.get(se.exerciseId);
       if (!re) continue;
-      const sets = setsByEx.get(se.id) ?? [];
-      await db.delete(s.routineSets).where(eq(s.routineSets.routineExerciseId, re.id));
-      if (sets.length)
-        await db.insert(s.routineSets).values(sets.map((x, i) => ({ routineExerciseId: re.id, position: i, reps: x.reps, weightKg: x.weightKg, type: x.type })));
+      targetSetsByReId.set(re.id, setsByEx.get(se.id) ?? []);
+    }
+    const targetReIds = [...targetSetsByReId.keys()];
+    if (targetReIds.length) {
+      await db.delete(s.routineSets).where(inArray(s.routineSets.routineExerciseId, targetReIds));
+      const newSets = [...targetSetsByReId.entries()].flatMap(([routineExerciseId, sets]) =>
+        sets.map((x, i) => ({ routineExerciseId, position: i, reps: x.reps, weightKg: x.weightKg, type: x.type })),
+      );
+      if (newSets.length) await db.insert(s.routineSets).values(newSets);
     }
   }
-  invalidateUser(user.id);
+  updateTag(cacheTags.session(sessionId));
+  updateTag(cacheTags.openSession(user.id));
+  updateTag(cacheTags.calendar(user.id));
+  updateTag(cacheTags.analytics(user.id));
+  updateTag(cacheTags.energy(user.id));
+  updateTag(cacheTags.plan(user.id));
+  if (opts.updateRoutine && session.routineId) {
+    updateTag(cacheTags.routines(user.id));
+    updateTag(cacheTags.routine(session.routineId));
+  }
   refresh();
   return { ok: true };
 }
@@ -588,7 +679,8 @@ export async function updateRoutineFromSession(sessionId: number): Promise<void>
   if (!session.routineId) throw new Error("La sesión no tiene rutina asociada");
   const db = await getDb();
   await copySessionExercisesToRoutine(db, sessionId, session.routineId, true);
-  invalidateUser(user.id);
+  updateTag(cacheTags.plan(user.id));
+  updateTag(cacheTags.calendar(user.id));
   refresh();
 }
 
@@ -598,7 +690,8 @@ export async function createRoutineFromSession(sessionId: number, name: string):
   if (!name.trim()) throw new Error("Pon un nombre a la rutina");
   const db = await getDb();
   await createRoutineCopyFromSession(db, user.id, session, name);
-  invalidateUser(user.id);
+  updateTag(cacheTags.plan(user.id));
+  updateTag(cacheTags.calendar(user.id));
   refresh();
 }
 
@@ -606,7 +699,12 @@ export async function deleteWorkout(sessionId: number, opts?: { redirectToHome?:
   const user = await requireUser();
   const db = await getDb();
   await db.delete(s.workoutSessions).where(and(eq(s.workoutSessions.id, sessionId), eq(s.workoutSessions.userId, user.id)));
-  invalidateUser(user.id);
+  updateTag(cacheTags.session(sessionId));
+  updateTag(cacheTags.openSession(user.id));
+  updateTag(cacheTags.calendar(user.id));
+  updateTag(cacheTags.analytics(user.id));
+  updateTag(cacheTags.energy(user.id));
+  updateTag(cacheTags.plan(user.id));
   if (opts?.redirectToHome === false) {
     refresh();
     return;
@@ -653,7 +751,10 @@ export async function logActivity(_: FormState, form: FormData): Promise<FormSta
   const combinedNotes = [autoNote, userNotes].filter(Boolean).join(" · ").slice(0, 500) || null;
   const db = await getDb();
   await db.insert(s.activities).values({ userId: user.id, type, date, durationMin, intensity, kcal, notes: combinedNotes });
-  invalidateUser(user.id);
+  updateTag(cacheTags.activities(user.id));
+  updateTag(cacheTags.calendar(user.id));
+  updateTag(cacheTags.energy(user.id));
+  updateTag(cacheTags.plan(user.id));
   refresh();
   return { ok: true };
 }
@@ -662,7 +763,8 @@ export async function deleteActivity(id: number) {
   const user = await requireUser();
   const db = await getDb();
   await db.delete(s.activities).where(and(eq(s.activities.id, id), eq(s.activities.userId, user.id)));
-  invalidateUser(user.id);
+  updateTag(cacheTags.plan(user.id));
+  updateTag(cacheTags.calendar(user.id));
   refresh();
 }
 
@@ -684,7 +786,8 @@ export async function logIntake(_: FormState, form: FormData): Promise<FormState
       .insert(s.intakeLogs)
       .values({ userId: user.id, date, kcal })
       .onConflictDoUpdate({ target: [s.intakeLogs.userId, s.intakeLogs.date], set: { kcal } });
-  invalidateUser(user.id);
+  updateTag(cacheTags.energy(user.id));
+  updateTag(cacheTags.calendar(user.id));
   refresh();
   return { ok: true };
 }
@@ -703,7 +806,7 @@ export async function createCustomExercise(_: FormState, form: FormData): Promis
   const db = await getDb();
   const id = `u${user.id}_${name.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "_").slice(0, 40)}_${Date.now().toString(36)}`;
   await db.insert(s.exercises).values({ id, name, primaryMuscle, equipment, ownerId: user.id, images: image ? [image] : [] });
-  invalidateUser(user.id);
+  updateTag(cacheTags.exercises(user.id));
   redirect(`/ejercicios/${encodeURIComponent(id)}`);
 }
 

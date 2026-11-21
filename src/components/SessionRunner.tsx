@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { addExercisesToSession, deleteWorkout, finishWorkout, removeSessionExercise, saveSessionSets } from "@/app/actions";
-import type { ExerciseLite, SessionDetail } from "@/lib/data";
+import type { SessionDetail } from "@/lib/data";
 import { INTENSITIES, type Intensity } from "@/lib/kcal";
 import { equipmentLabel, exerciseImage, muscleLabel } from "@/lib/labels";
 import { isRedirectError, withBackParams } from "@/lib/navigation";
@@ -65,14 +65,12 @@ const fmtKg = (n: number) => `${Math.round(n * 10) / 10} kg`;
 
 export function SessionRunner({
   session,
-  exercises,
   previous,
   bodyWeightKg,
   routineExerciseIds,
   initialExerciseId = null,
 }: {
   session: SessionDetail;
-  exercises: ExerciseLite[];
   previous: Prev;
   bodyWeightKg: number;
   routineExerciseIds: string[] | null;
@@ -488,7 +486,6 @@ export function SessionRunner({
 
       {picker && (
         <ExercisePicker
-          exercises={exercises}
           pending={pending}
           onClose={() => setPicker(false)}
           onConfirm={(ids) =>

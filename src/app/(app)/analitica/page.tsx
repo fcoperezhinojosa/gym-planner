@@ -4,7 +4,7 @@ import { WeeklyBarChart, WeeklyKcalChart } from "@/components/Charts";
 import { EnergyBalance } from "@/components/EnergyBalance";
 import { Card, PageHeader, Stat } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { completedSetsInRange, getCalendar, getEnergyDays } from "@/lib/data";
+import { completedSetsInRange, getCalendarAndEnergy } from "@/lib/data";
 import { addDays, diffDays, formatShort, startOfWeek, todayISO } from "@/lib/dates";
 import { baseDailyKcal, basalKcal, periodStart } from "@/lib/energy";
 import { MUSCLE_GROUPS, muscleGroup, type MuscleGroup } from "@/lib/labels";
@@ -23,10 +23,9 @@ export default async function AnalyticsPage() {
   const from = addDays(thisWeek, -7 * (WEEKS - 1));
   // Balance energético: hasta 6 meses atrás (lo máximo que muestra la vista "Mes").
   const energyFrom = [periodStart(today, "month", 6), periodStart(today, "week", 12)].sort()[0];
-  const [days, sets, energyDays] = await Promise.all([
-    getCalendar(user.id, from, WEEKS * 7),
+  const [{ calendar: days, energy: energyDays }, sets] = await Promise.all([
+    getCalendarAndEnergy(user.id, from, WEEKS * 7, energyFrom, diffDays(today, energyFrom) + 1),
     completedSetsInRange(user.id, from, addDays(thisWeek, 6)),
-    getEnergyDays(user.id, energyFrom, diffDays(today, energyFrom) + 1),
   ]);
   const bmr = basalKcal({
     sex: user.sex,

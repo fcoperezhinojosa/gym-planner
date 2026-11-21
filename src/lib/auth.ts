@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
+import { cacheTags } from "./cache-tags";
 import { SESSION_COOKIE, SESSION_DAYS, signSession, verifySession } from "./session";
 
 export type CurrentUser = {
@@ -19,10 +20,17 @@ export type CurrentUser = {
   defaultRestSeconds: number;
 };
 
+async function getSessionUserId(): Promise<number | null> {
+  "use cache: private";
+  cacheLife({ stale: 300 });
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  return verifySession(token);
+}
+
 async function getUserById(uid: number): Promise<CurrentUser | null> {
-  "use cache";
-  cacheLife("minutes");
-  cacheTag(`user-profile:${uid}`);
+  "use cache: remote";
+  cacheLife("days");
+  cacheTag(cacheTags.userProfile(uid));
   const db = await getDb();
   const [u] = await db
     .select({
@@ -42,8 +50,7 @@ async function getUserById(uid: number): Promise<CurrentUser | null> {
 }
 
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  const uid = await verifySession(token);
+  const uid = await getSessionUserId();
   if (!uid) return null;
   return getUserById(uid);
 });

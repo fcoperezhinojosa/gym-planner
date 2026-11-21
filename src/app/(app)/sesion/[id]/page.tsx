@@ -4,7 +4,7 @@ import { BackLink } from "@/components/BackLink";
 import { SessionRunner } from "@/components/SessionRunner";
 import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { getSessionDetail, lastSetsByExercise, listExercisesLite, listRoutineExerciseIds } from "@/lib/data";
+import { getSessionDetail, lastSetsByExercise, listRoutineExerciseIds } from "@/lib/data";
 import { safeBackHref, safeBackLabel } from "@/lib/navigation";
 
 export const metadata: Metadata = { title: "Entrenamiento" };
@@ -16,8 +16,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   if (!Number.isInteger(sessionId)) notFound();
   const session = await getSessionDetail(user.id, sessionId);
   if (!session) notFound();
-  const [exercises, last, routineExerciseIds] = await Promise.all([
-    listExercisesLite(user.id),
+  const [last, routineExerciseIds] = await Promise.all([
     lastSetsByExercise(user.id, session.exercises.map((e) => e.exerciseId), session.id),
     session.routineId ? listRoutineExerciseIds(user.id, session.routineId) : Promise.resolve(null),
   ]);
@@ -39,7 +38,6 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
       <SessionRunner
         key={`${session.id}-${session.endedAt ? 1 : 0}`}
         session={session}
-        exercises={exercises}
         previous={previous}
         bodyWeightKg={user.bodyWeightKg}
         routineExerciseIds={routineExerciseIds}

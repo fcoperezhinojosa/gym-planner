@@ -46,50 +46,70 @@ export const exercises = pgTable(
     images: text("images").array().notNull().default([]),
     ownerId: integer("owner_id").references(() => users.id, { onDelete: "cascade" }),
   },
-  (t) => [index("exercises_muscle_idx").on(t.primaryMuscle), index("exercises_equipment_idx").on(t.equipment)],
+  (t) => [
+    index("exercises_muscle_idx").on(t.primaryMuscle),
+    index("exercises_equipment_idx").on(t.equipment),
+    index("exercises_owner_idx").on(t.ownerId),
+  ],
 );
 
 /* ───────────── Plantillas ───────────── */
 
-export const routines = pgTable("routines", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  color: text("color").notNull().default("#f97316"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const routines = pgTable(
+  "routines",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    color: text("color").notNull().default("#f97316"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("routines_user_idx").on(t.userId)],
+);
 
-export const routineExercises = pgTable("routine_exercises", {
-  id: serial("id").primaryKey(),
-  routineId: integer("routine_id").notNull().references(() => routines.id, { onDelete: "cascade" }),
-  exerciseId: text("exercise_id").notNull().references(() => exercises.id),
-  position: integer("position").notNull(),
-  restSeconds: integer("rest_seconds").notNull().default(60),
-  notes: text("notes"),
-});
+export const routineExercises = pgTable(
+  "routine_exercises",
+  {
+    id: serial("id").primaryKey(),
+    routineId: integer("routine_id").notNull().references(() => routines.id, { onDelete: "cascade" }),
+    exerciseId: text("exercise_id").notNull().references(() => exercises.id),
+    position: integer("position").notNull(),
+    restSeconds: integer("rest_seconds").notNull().default(60),
+    notes: text("notes"),
+  },
+  (t) => [index("routine_exercises_routine_idx").on(t.routineId)],
+);
 
-export const routineSets = pgTable("routine_sets", {
-  id: serial("id").primaryKey(),
-  routineExerciseId: integer("routine_exercise_id")
-    .notNull()
-    .references(() => routineExercises.id, { onDelete: "cascade" }),
-  position: integer("position").notNull(),
-  reps: integer("reps").notNull().default(10),
-  weightKg: real("weight_kg").notNull().default(0),
-  type: text("type").notNull().default("normal"),
-});
+export const routineSets = pgTable(
+  "routine_sets",
+  {
+    id: serial("id").primaryKey(),
+    routineExerciseId: integer("routine_exercise_id")
+      .notNull()
+      .references(() => routineExercises.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    reps: integer("reps").notNull().default(10),
+    weightKg: real("weight_kg").notNull().default(0),
+    type: text("type").notNull().default("normal"),
+  },
+  (t) => [index("routine_sets_routine_exercise_idx").on(t.routineExerciseId)],
+);
 
 /* ───────────── Plan semanal con rotación ───────────── */
 
-export const plans = pgTable("plans", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  startDate: date("start_date").notNull(),
-  cycleWeeks: integer("cycle_weeks").notNull().default(1),
-  isActive: boolean("is_active").notNull().default(true),
-});
+export const plans = pgTable(
+  "plans",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    startDate: date("start_date").notNull(),
+    cycleWeeks: integer("cycle_weeks").notNull().default(1),
+    isActive: boolean("is_active").notNull().default(true),
+  },
+  (t) => [index("plans_user_active_idx").on(t.userId, t.isActive)],
+);
 
 /** kind: workout | rest | activity */
 export const planDays = pgTable(
@@ -144,25 +164,36 @@ export const workoutSessions = pgTable(
   (t) => [index("workout_sessions_user_date_idx").on(t.userId, t.date)],
 );
 
-export const sessionExercises = pgTable("session_exercises", {
-  id: serial("id").primaryKey(),
-  sessionId: integer("session_id").notNull().references(() => workoutSessions.id, { onDelete: "cascade" }),
-  exerciseId: text("exercise_id").notNull().references(() => exercises.id),
-  position: integer("position").notNull(),
-  restSeconds: integer("rest_seconds").notNull().default(60),
-});
+export const sessionExercises = pgTable(
+  "session_exercises",
+  {
+    id: serial("id").primaryKey(),
+    sessionId: integer("session_id").notNull().references(() => workoutSessions.id, { onDelete: "cascade" }),
+    exerciseId: text("exercise_id").notNull().references(() => exercises.id),
+    position: integer("position").notNull(),
+    restSeconds: integer("rest_seconds").notNull().default(60),
+  },
+  (t) => [
+    index("session_exercises_session_idx").on(t.sessionId),
+    index("session_exercises_exercise_idx").on(t.exerciseId),
+  ],
+);
 
-export const sessionSets = pgTable("session_sets", {
-  id: serial("id").primaryKey(),
-  sessionExerciseId: integer("session_exercise_id")
-    .notNull()
-    .references(() => sessionExercises.id, { onDelete: "cascade" }),
-  position: integer("position").notNull(),
-  reps: integer("reps").notNull().default(10),
-  weightKg: real("weight_kg").notNull().default(0),
-  type: text("type").notNull().default("normal"),
-  completed: boolean("completed").notNull().default(false),
-});
+export const sessionSets = pgTable(
+  "session_sets",
+  {
+    id: serial("id").primaryKey(),
+    sessionExerciseId: integer("session_exercise_id")
+      .notNull()
+      .references(() => sessionExercises.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    reps: integer("reps").notNull().default(10),
+    weightKg: real("weight_kg").notNull().default(0),
+    type: text("type").notNull().default("normal"),
+    completed: boolean("completed").notNull().default(false),
+  },
+  (t) => [index("session_sets_session_exercise_idx").on(t.sessionExerciseId)],
+);
 
 /** Actividades fuera del gimnasio: pádel, correr, bici… */
 export const activities = pgTable(

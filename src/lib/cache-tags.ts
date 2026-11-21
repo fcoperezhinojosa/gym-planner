@@ -1,0 +1,16 @@
+export const cacheTags = {
+  userProfile: (userId: number) => `user-profile:${userId}`,
+  exercises: (userId: number) => `exercises:${userId}`,
+  exercise: (id: string) => `exercise:${id}`,
+  routineOptions: (userId: number) => `routine-options:${userId}`,
+  routines: (userId: number) => `routines:${userId}`,
+  routine: (routineId: number) => `routine:${routineId}`,
+  plan: (userId: number) => `plan:${userId}`,
+  calendar: (userId: number) => `calendar:${userId}`,
+  openSession: (userId: number) => `open-session:${userId}`,
+  session: (sessionId: number) => `session:${sessionId}`,
+  analytics: (userId: number) => `analytics:${userId}`,
+  activities: (userId: number) => `activities:${userId}`,
+  energy: (userId: number) => `energy:${userId}`,
+  tokens: (userId: number) => `tokens:${userId}`,
+} as const;

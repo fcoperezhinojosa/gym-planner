@@ -1,0 +1,151 @@
+/* Pantalla de carga de la primera sesión. Solo CSS/SVG: funciona antes de hidratar. */
+
+.sl-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 1.5rem;
+}
+
+.sl-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.5rem 1rem;
+}
+
+.sl-art {
+  width: 11rem;
+  height: 11rem;
+  overflow: visible;
+}
+
+.sl-brand {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+}
+
+/* ---- Mensajes rotativos (sin JS) ---- */
+.sl-messages {
+  position: relative;
+  height: 1.25rem;
+  width: 16rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.sl-messages span {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  animation: sl-msg 7.5s infinite;
+}
+.sl-messages span:nth-child(2) { animation-delay: 2.5s; }
+.sl-messages span:nth-child(3) { animation-delay: 5s; }
+@keyframes sl-msg {
+  0% { opacity: 0; transform: translateY(6px); }
+  6%, 30% { opacity: 1; transform: none; }
+  36%, 100% { opacity: 0; transform: translateY(-6px); }
+}
+
+/* ---- Trazos comunes ---- */
+.sl-body { stroke: var(--accent); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.sl-head { fill: var(--accent); }
+.sl-iron { stroke: var(--fg); stroke-linecap: round; fill: none; }
+.sl-plate { fill: var(--fg); }
+.sl-shadow { fill: var(--fg); opacity: 0.08; }
+.sl-soft { fill: var(--accent-soft); }
+
+/* ================= A · Curl alterno ================= */
+.sl-curlR, .sl-curlL { transform-box: view-box; }
+.sl-curlR { transform-origin: 126px 100px; animation: sl-curlR 1.6s ease-in-out infinite; }
+.sl-curlL { transform-origin: 74px 100px; animation: sl-curlL 1.6s ease-in-out infinite; animation-delay: -0.8s; }
+@keyframes sl-curlR {
+  0%, 100% { transform: rotate(0deg); }
+  45%, 55% { transform: rotate(150deg); }
+}
+@keyframes sl-curlL {
+  0%, 100% { transform: rotate(0deg); }
+  45%, 55% { transform: rotate(-150deg); }
+}
+.sl-breath { transform-box: view-box; transform-origin: 100px 170px; animation: sl-breath 0.8s ease-in-out infinite alternate; }
+@keyframes sl-breath { to { transform: scaleY(0.985); } }
+.sl-drop { fill: var(--periwinkle); animation: sl-drop 1.6s ease-in infinite; }
+@keyframes sl-drop {
+  0%, 40% { opacity: 0; transform: translate(0, 0); }
+  50% { opacity: 1; }
+  100% { opacity: 0; transform: translate(6px, 18px); }
+}
+
+/* ================= B · Doble bíceps + anillo ================= */
+.sl-ring { fill: none; stroke: var(--card-2); stroke-width: 6; }
+.sl-ringFill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 534;
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+  transform: rotate(-90deg);
+  animation: sl-ring 2.4s cubic-bezier(.6,.1,.3,1) infinite;
+}
+@keyframes sl-ring {
+  0% { stroke-dashoffset: 534; }
+  70% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -534; }
+}
+.sl-foreR, .sl-foreL { transform-box: view-box; animation: sl-pump 1.2s ease-in-out infinite; }
+.sl-foreR { transform-origin: 134px 82px; }
+.sl-foreL { transform-origin: 66px 82px; animation-name: sl-pumpL; }
+@keyframes sl-pump { 0%, 100% { transform: rotate(18deg); } 50% { transform: rotate(-6deg); } }
+@keyframes sl-pumpL { 0%, 100% { transform: rotate(-18deg); } 50% { transform: rotate(6deg); } }
+.sl-bicep { fill: var(--accent); transform-box: fill-box; transform-origin: 50% 100%; animation: sl-bulge 1.2s ease-in-out infinite; }
+@keyframes sl-bulge { 0%, 100% { transform: scale(0.55); } 50% { transform: scale(1.15); } }
+.sl-spark { stroke: var(--periwinkle); stroke-width: 3; stroke-linecap: round; animation: sl-spark 1.2s ease-out infinite; }
+@keyframes sl-spark {
+  0%, 35% { opacity: 0; stroke-dashoffset: 10; }
+  50% { opacity: 1; stroke-dashoffset: 0; }
+  80%, 100% { opacity: 0; stroke-dashoffset: -10; }
+}
+
+/* ================= C · Press con carga de discos ================= */
+.sl-p1, .sl-p2, .sl-p3 { transform-box: fill-box; transform-origin: center; animation: sl-plate 4s ease-out infinite; }
+.sl-p2 { animation-name: sl-plate2; }
+.sl-p3 { animation-name: sl-plate3; }
+@keyframes sl-plate {
+  0% { opacity: 0; transform: scaleY(0.2); }
+  8%, 92% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+@keyframes sl-plate2 {
+  0%, 12% { opacity: 0; transform: scaleY(0.2); }
+  20%, 92% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+@keyframes sl-plate3 {
+  0%, 24% { opacity: 0; transform: scaleY(0.2); }
+  32%, 92% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+.sl-bar { stroke-width: 5; }
+.sl-loadBar { fill: var(--card-2); }
+.sl-loadFill { fill: var(--accent); transform-box: fill-box; transform-origin: left; animation: sl-load 4s linear infinite; }
+@keyframes sl-load { 0% { transform: scaleX(0); } 90% { transform: scaleX(1); } 100% { transform: scaleX(1); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-art * { animation: none !important; }
+  .sl-messages span { animation: none; }
+  .sl-messages span:first-child { opacity: 1; }
+}

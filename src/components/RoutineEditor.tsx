@@ -12,7 +12,7 @@ import {
   startWorkout,
   updateRoutine,
 } from "@/app/actions";
-import type { ExerciseLite, RoutineDetail } from "@/lib/data";
+import type { RoutineDetail } from "@/lib/data";
 import { equipmentLabel, muscleLabel } from "@/lib/labels";
 import { isRedirectError, withBackParams } from "@/lib/navigation";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -25,7 +25,7 @@ import { useDebouncedSave } from "./useDebouncedSave";
 
 const COLORS = ["#2f55f4", "#3b82f6", "#22c55e", "#a855f7", "#ec4899", "#eab308", "#14b8a6", "#f97316", "#ef4444"];
 
-export function RoutineEditor({ routine, exercises }: { routine: RoutineDetail; exercises: ExerciseLite[] }) {
+export function RoutineEditor({ routine }: { routine: RoutineDetail }) {
   const [picker, setPicker] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [removingEx, setRemovingEx] = useState<{ id: number; name: string } | null>(null);
@@ -127,7 +127,6 @@ export function RoutineEditor({ routine, exercises }: { routine: RoutineDetail; 
 
       {picker && (
         <ExercisePicker
-          exercises={exercises}
           pending={pending}
           onClose={() => setPicker(false)}
           onConfirm={(ids) =>

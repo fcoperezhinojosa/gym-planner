@@ -2,22 +2,24 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ExerciseLite } from "@/lib/data";
+import { useExerciseCatalog } from "@/lib/exercise-catalog-client";
 import { EQUIPMENT, MUSCLES, equipmentLabel, muscleLabel } from "@/lib/labels";
 import { normalize } from "@/lib/text";
 import { ExerciseThumb } from "./ExerciseThumb";
 import { Button, cx, input } from "./ui";
 
 export function ExercisePicker({
-  exercises,
+  exercises: providedExercises,
   onConfirm,
   onClose,
   pending,
 }: {
-  exercises: ExerciseLite[];
+  exercises?: ExerciseLite[];
   onConfirm: (ids: string[]) => void;
   onClose: () => void;
   pending?: boolean;
 }) {
+  const { exercises, loading, error, retry } = useExerciseCatalog(providedExercises);
   const [q, setQ] = useState("");
   const [muscle, setMuscle] = useState("");
   const [equipment, setEquipment] = useState("");
@@ -98,7 +100,14 @@ export function ExercisePicker({
             );
           })}
           {results.length > 80 && <li className="p-3 text-center text-xs text-muted">{results.length - 80} más… afina la búsqueda</li>}
-          {results.length === 0 && <li className="p-6 text-center text-sm text-muted">Sin resultados</li>}
+          {loading && exercises.length === 0 && <li className="p-6 text-center text-sm text-muted">Cargando ejercicios…</li>}
+          {error && exercises.length === 0 && (
+            <li className="space-y-2 p-6 text-center text-sm text-muted">
+              <p>No se pudo cargar el catálogo.</p>
+              <Button type="button" size="sm" variant="secondary" onClick={retry}>Reintentar</Button>
+            </li>
+          )}
+          {!loading && !error && results.length === 0 && <li className="p-6 text-center text-sm text-muted">Sin resultados</li>}
         </ul>
         <div className="flex gap-2 border-t border-line p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancelar</Button>
