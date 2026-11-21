@@ -15,6 +15,12 @@ import { aggregateEnergy, basalKcal, energyVerdict, periodStart } from "../src/l
 import { isRedirectError, safeBackHref, safeBackLabel, withBackParams } from "../src/lib/navigation";
 import { EMPTY_PAUSE, computeElapsedSec, formatClock, pauseTimer, resumeTimer } from "../src/lib/session-timer";
 import { epley1RM, suggestWeight, weekStreak } from "../src/lib/stats";
+import {
+  buildReminderPayload,
+  isValidTimeZone,
+  localHourAndDate,
+  shouldSendDailyReminder,
+} from "../src/lib/reminders";
 import { BOOT_STEPS, LOADER_VARIANT_COUNT, WELCOME_MESSAGES, pickBootConfig, resolveBootConfig } from "../src/lib/boot-loader";
 import {
   EMPTY_REST_ROTATION,
@@ -432,5 +438,65 @@ describe("emojis y títulos de celdas del calendario", () => {
     });
     expect(doneDayEmojis(openOnly)).toEqual([]);
     expect(calendarCellEmojis(openOnly, today)).toEqual(["😴"]);
+  });
+});
+
+describe("recordatorios diarios (Web Push)", () => {
+  it("valida zonas horarias IANA y calcula fecha y hora local", () => {
+    expect(isValidTimeZone("Europe/Madrid")).toBe(true);
+    expect(isValidTimeZone("Atlantic/Canary")).toBe(true);
+    expect(isValidTimeZone("Mars/Olympus")).toBe(false);
+    expect(isValidTimeZone("")).toBe(false);
+
+    // 2026-11-21 20:15 UTC = 21:15 en Europe/Madrid (UTC+1 en noviembre)
+    const now = new Date("2026-11-21T20:15:00Z");
+    expect(localHourAndDate(now, "Europe/Madrid")).toEqual({ date: "2026-11-21", hour: 21 });
+    expect(localHourAndDate(now, "Atlantic/Canary")).toEqual({ date: "2026-11-21", hour: 20 });
+  });
+
+  it("solo avisa a la hora configurada, una vez al día y si falta kcal o actividad", () => {
+    const at21Madrid = new Date("2026-11-21T20:05:00Z");
+    const base = {
+      now: at21Madrid,
+      reminderEnabled: true,
+      reminderHour: 21,
+      reminderTimeZone: "Europe/Madrid",
+      reminderLastSentDate: null,
+      hasActivityOrWorkoutToday: false,
+      hasIntakeToday: false,
+    };
+
+    expect(shouldSendDailyReminder(base)).toEqual({
+      shouldSend: true,
+      today: "2026-11-21",
+      missingIntake: true,
+      missingActivity: true,
+    });
+
+    // Si ya se registró todo hoy, no molesta
+    expect(
+      shouldSendDailyReminder({ ...base, hasActivityOrWorkoutToday: true, hasIntakeToday: true }).shouldSend,
+    ).toBe(false);
+
+    // Si falta solo kcal o solo actividad, sí avisa
+    expect(
+      shouldSendDailyReminder({ ...base, hasActivityOrWorkoutToday: true, hasIntakeToday: false }).shouldSend,
+    ).toBe(true);
+    expect(
+      shouldSendDailyReminder({ ...base, hasActivityOrWorkoutToday: false, hasIntakeToday: true }).shouldSend,
+    ).toBe(true);
+
+    // Si ya se envió hoy, no repite
+    expect(shouldSendDailyReminder({ ...base, reminderLastSentDate: "2026-11-21" }).shouldSend).toBe(false);
+
+    // Si es otra hora o está desactivado, no avisa
+    expect(shouldSendDailyReminder({ ...base, reminderHour: 22 }).shouldSend).toBe(false);
+    expect(shouldSendDailyReminder({ ...base, reminderEnabled: false }).shouldSend).toBe(false);
+  });
+
+  it("construye el mensaje adaptado a lo que falta hoy apuntando a /cierre", () => {
+    expect(buildReminderPayload({ missingIntake: true, missingActivity: true }).url).toBe("/cierre");
+    expect(buildReminderPayload({ missingIntake: true, missingActivity: false }).title).toContain("kcal");
+    expect(buildReminderPayload({ missingIntake: false, missingActivity: true }).title).toContain("actividad");
   });
 });

@@ -39,6 +39,21 @@ La app usa Drizzle sobre Postgres estándar, así que vale cualquier Postgres; l
 
 Se puede instalar en el móvil como app ("Añadir a pantalla de inicio").
 
+### Notificaciones push (recordatorio diario)
+
+La app soporta notificaciones Web Push (Android Chrome / PWA, escritorio e iOS 16.4+ instalada) para recordar al final del día registrar kcal y actividad, abriendo `/cierre`:
+
+1. Genera un par de claves VAPID (gratuitas, una sola vez):
+   ```bash
+   npx web-push generate-vapid-keys
+   ```
+2. Añade en Vercel (Variables de entorno):
+   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (clave pública)
+   - `VAPID_PRIVATE_KEY` (clave privada)
+   - `VAPID_SUBJECT` (p. ej. `mailto:tu-email@ejemplo.com`)
+3. Aplica la migración en producción (`DATABASE_URL="postgres://…" npm run db:setup`).
+4. El archivo `vercel.json` programa automáticamente un Vercel Schedule cada hora (`daily-reminders`) que avisa a cada usuario a su hora configurada en **Más → Notificaciones** solo si hoy le falta registrar kcal o actividad.
+
 ## Acceso para IAs (API REST + MCP)
 
 Para que Instinct u otra IA consulte qué toca hoy, analice tu entreno y cree rutinas y ejercicios:

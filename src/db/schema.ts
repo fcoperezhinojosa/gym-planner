@@ -25,6 +25,14 @@ export const users = pgTable("users", {
   dailyIntakeKcal: integer("daily_intake_kcal"),
   /** Segundos de descanso por defecto al añadir ejercicios nuevos. */
   defaultRestSeconds: integer("default_rest_seconds").notNull().default(60),
+  /** Recordatorio diario (Web Push) al final del día si falta registrar kcal o actividad. */
+  reminderEnabled: boolean("reminder_enabled").notNull().default(true),
+  /** Hora local (0–23) a la que se envía el recordatorio diario. */
+  reminderHour: integer("reminder_hour").notNull().default(21),
+  /** Zona horaria IANA del usuario para calcular su hora local. */
+  reminderTimeZone: text("reminder_time_zone").notNull().default("Europe/Madrid"),
+  /** Última fecha (YYYY-MM-DD en su zona) en que se envió el recordatorio, para evitar duplicados. */
+  reminderLastSentDate: date("reminder_last_sent_date"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -239,4 +247,22 @@ export const apiTokens = pgTable(
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   },
   (t) => [index("api_tokens_user_idx").on(t.userId)],
+);
+
+/* ───────────── Notificaciones Web Push ───────────── */
+
+/** Suscripciones Web Push por dispositivo del usuario. */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (t) => [index("push_subscriptions_user_idx").on(t.userId)],
 );

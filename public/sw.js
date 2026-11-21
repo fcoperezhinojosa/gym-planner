@@ -6,7 +6,7 @@
  * - Imágenes de ejercicios: caché primero (los iconos propios no se congelan en caché).
  * Las Server Actions (POST) nunca se cachean; el cliente guarda sus cambios en cola local.
  */
-const VERSION = "v4";
+const VERSION = "v5";
 const SHELL = `shell-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
 const STATIC = `static-${VERSION}`;
@@ -111,4 +111,45 @@ self.addEventListener("fetch", (event) => {
   if (request.destination === "image" || url.hostname === "raw.githubusercontent.com") {
     event.respondWith(cacheFirst(request, IMAGES).catch(() => Response.error()));
   }
+});
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : "" };
+  }
+  const title = data.title || "Gym Planner";
+  const options = {
+    body: data.body || "Registra tu actividad y kcal de hoy.",
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    tag: data.tag || "daily-reminder",
+    renotify: true,
+    data: { url: data.url || "/cierre" },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetPath = (event.notification.data && event.notification.data.url) || "/cierre";
+  const targetUrl = new URL(targetPath, self.location.origin).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clientList) => {
+      for (const client of clientList) {
+        if (new URL(client.url).origin === self.location.origin) {
+          if ("navigate" in client) {
+            try {
+              await client.navigate(targetUrl);
+            } catch {}
+          }
+          if ("focus" in client) return client.focus();
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+    }),
+  );
 });

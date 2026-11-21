@@ -14,6 +14,7 @@ const ITEMS = [
 ];
 
 const MORE = [
+  { href: "/cierre", label: "Cierre del día" },
   { href: "/plan", label: "Plan semanal" },
   { href: "/ejercicios", label: "Ejercicios" },
   { href: "/actividades", label: "Actividades" },

@@ -18,6 +18,9 @@ export type CurrentUser = {
   heightCm: number | null;
   dailyIntakeKcal: number | null;
   defaultRestSeconds: number;
+  reminderEnabled: boolean;
+  reminderHour: number;
+  reminderTimeZone: string;
 };
 
 async function getSessionUserId(): Promise<number | null> {
@@ -43,6 +46,9 @@ async function getUserById(uid: number): Promise<CurrentUser | null> {
       heightCm: schema.users.heightCm,
       dailyIntakeKcal: schema.users.dailyIntakeKcal,
       defaultRestSeconds: schema.users.defaultRestSeconds,
+      reminderEnabled: schema.users.reminderEnabled,
+      reminderHour: schema.users.reminderHour,
+      reminderTimeZone: schema.users.reminderTimeZone,
     })
     .from(schema.users)
     .where(eq(schema.users.id, uid));

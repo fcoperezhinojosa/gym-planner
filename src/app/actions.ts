@@ -22,6 +22,7 @@ import { normalizeSlot } from "@/lib/schedule";
 import { generateToken } from "@/lib/api-tokens";
 import { cacheTags } from "@/lib/cache-tags";
 import { lastSetsByExercise } from "@/lib/data";
+import { isValidTimeZone } from "@/lib/reminders";
 
 export type FormState = { error?: string; ok?: boolean } | undefined;
 
@@ -869,4 +870,23 @@ export async function revokeApiToken(id: number) {
   await db.delete(s.apiTokens).where(and(eq(s.apiTokens.id, id), eq(s.apiTokens.userId, user.id)));
   updateTag(cacheTags.tokens(user.id));
   refresh();
+}
+
+/* ───────────── Recordatorios (Web Push) ───────────── */
+
+export async function updateReminderSettings(_: FormState, form: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const reminderEnabled = form.get("reminderEnabled") === "on";
+  const reminderHour = clamp(Math.round(num(form.get("reminderHour"), user.reminderHour)), 0, 23);
+  const rawTz = str(form.get("reminderTimeZone"));
+  const reminderTimeZone = isValidTimeZone(rawTz) ? rawTz : user.reminderTimeZone;
+
+  const db = await getDb();
+  await db
+    .update(s.users)
+    .set({ reminderEnabled, reminderHour, reminderTimeZone })
+    .where(eq(s.users.id, user.id));
+  updateTag(cacheTags.userProfile(user.id));
+  refresh();
+  return { ok: true };
 }

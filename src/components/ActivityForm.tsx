@@ -16,7 +16,7 @@ import { CloseAddActivityContext } from "./AddActivityContext";
 import { toast } from "./Toast";
 import { Button, cx, input, label } from "./ui";
 
-type WalkingMeasure = "minutes" | "km" | "steps";
+export type WalkingMeasure = "minutes" | "km" | "steps";
 
 const WALKING_MEASURES: { id: WalkingMeasure; label: string }[] = [
   { id: "minutes", label: "Minutos" },
@@ -29,17 +29,19 @@ function ActivityFormInner({
   bodyWeightKg,
   heightCm = null,
   defaultType = "other",
+  defaultMeasure = "minutes",
   onSuccess,
 }: {
   today: string;
   bodyWeightKg: number;
   heightCm?: number | null;
   defaultType?: string;
+  defaultMeasure?: WalkingMeasure;
   onSuccess: () => void;
 }) {
   const [state, action, pending] = useActionState(logActivity, undefined);
   const [type, setType] = useState(defaultType);
-  const [measure, setMeasure] = useState<WalkingMeasure>("minutes");
+  const [measure, setMeasure] = useState<WalkingMeasure>(defaultMeasure);
   const [minutes, setMinutes] = useState(45);
   const [distanceKm, setDistanceKm] = useState(5);
   const [steps, setSteps] = useState(8000);
@@ -146,21 +148,24 @@ export function ActivityForm({
   bodyWeightKg,
   heightCm = null,
   defaultType = "other",
+  defaultMeasure = "minutes",
 }: {
   today: string;
   bodyWeightKg: number;
   heightCm?: number | null;
   defaultType?: string;
+  defaultMeasure?: WalkingMeasure;
 }) {
   const [key, setKey] = useState(0);
   const close = useContext(CloseAddActivityContext);
   return (
     <ActivityFormInner
-      key={key}
+      key={`${defaultType}-${defaultMeasure}-${key}`}
       today={today}
       bodyWeightKg={bodyWeightKg}
       heightCm={heightCm}
       defaultType={defaultType}
+      defaultMeasure={defaultMeasure}
       onSuccess={() => {
         setKey((k) => k + 1);
         close?.();

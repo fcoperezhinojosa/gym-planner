@@ -5,6 +5,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { logout } from "@/app/actions";
 import { ApiTokens } from "@/components/ApiTokens";
+import { NotificationsCard } from "@/components/NotificationsCard";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProfileForm } from "@/components/ProfileForm";
 import { Button, Card, PageHeader } from "@/components/ui";
@@ -14,6 +15,7 @@ import { listApiTokens } from "@/lib/data";
 export const metadata: Metadata = { title: "Perfil" };
 
 const LINKS = [
+  { href: "/cierre", label: "Cierre del día", desc: "Registrar rápido tus kcal y actividad de hoy" },
   { href: "/plan", label: "Plan semanal", desc: "Qué toca cada día y rotación A/B" },
   { href: "/ejercicios", label: "Ejercicios", desc: "Catálogo con imágenes y tu progresión" },
   { href: "/actividades", label: "Actividades", desc: "Gimnasio, pádel, caminar, elíptica…" },
@@ -59,6 +61,14 @@ export default async function ProfilePage() {
           </li>
         ))}
       </ul>
+      <Card className="p-4">
+        <h2 className="mb-3 font-semibold">Notificaciones</h2>
+        <NotificationsCard
+          reminderEnabled={user.reminderEnabled}
+          reminderHour={user.reminderHour}
+          reminderTimeZone={user.reminderTimeZone}
+        />
+      </Card>
       <Card className="p-4">
         <h2 className="mb-3 font-semibold">Perfil</h2>
         <ProfileForm
