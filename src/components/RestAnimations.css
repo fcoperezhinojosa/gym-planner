@@ -1,0 +1,1060 @@
+/* Animaciones SVG/CSS para los 14 emblemas motivacionales de descanso entre series. */
+
+@keyframes gp-r-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gp-r-sq-trace {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -476;
+  }
+}
+
+.gp-r-orbit {
+  animation: gp-r-orbit 4.5s linear infinite;
+}
+
+.gp-r-sq-trace {
+  animation: gp-r-sq-trace 3.2s linear infinite;
+}
+
+/* 1. Hidratación Pro */
+@keyframes gp-rh-head {
+  0%,
+  16%,
+  78%,
+  100% {
+    transform: rotate(0deg) translateY(0px);
+  }
+  34%,
+  58% {
+    transform: rotate(-14deg) translate(-1px, -1px);
+  }
+  68% {
+    transform: rotate(4deg) translateY(1px);
+  }
+}
+
+@keyframes gp-rh-arm {
+  0%,
+  14%,
+  82%,
+  100% {
+    transform: rotate(12deg);
+  }
+  34%,
+  56% {
+    transform: rotate(-48deg);
+  }
+  68% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes gp-rh-bottle {
+  0%,
+  14%,
+  82%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  34%,
+  56% {
+    transform: rotate(-18deg);
+  }
+  68% {
+    transform: rotate(-2deg);
+  }
+}
+
+@keyframes gp-rh-sparks {
+  0%,
+  54%,
+  92%,
+  100% {
+    opacity: 0;
+    transform: scale(0.5) translateY(4px);
+  }
+  66% {
+    opacity: 1;
+    transform: scale(1.12) translateY(-2px);
+  }
+  78% {
+    opacity: 0.85;
+    transform: scale(1) translateY(-3px);
+  }
+}
+
+@keyframes gp-rh-gulp {
+  0%,
+  34%,
+  58%,
+  100% {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.6);
+  }
+  44% {
+    opacity: 1;
+    transform: translateY(2px) scale(1);
+  }
+  52% {
+    opacity: 0.9;
+    transform: translateY(5px) scale(0.85);
+  }
+}
+
+.gp-rh-head {
+  animation: gp-rh-head 2.4s cubic-bezier(0.36, 0, 0.2, 1) infinite;
+}
+.gp-rh-arm {
+  animation: gp-rh-arm 2.4s cubic-bezier(0.36, 0, 0.2, 1) infinite;
+}
+.gp-rh-bottle {
+  animation: gp-rh-bottle 2.4s cubic-bezier(0.36, 0, 0.2, 1) infinite;
+}
+.gp-rh-sparks {
+  animation: gp-rh-sparks 2.4s ease-out infinite;
+}
+.gp-rh-gulp {
+  animation: gp-rh-gulp 2.4s ease-in-out infinite;
+}
+
+/* 2. Recarga de ATP */
+@keyframes gp-rb-breath {
+  0%,
+  100% {
+    transform: translateY(0px) scale(1, 1);
+  }
+  45% {
+    transform: translateY(-3px) scale(1.03, 1.02);
+  }
+  78% {
+    transform: translateY(-1px) scale(1.01, 1);
+  }
+}
+
+@keyframes gp-rb-arms {
+  0%,
+  66%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  78% {
+    transform: translateY(-5px) rotate(-10deg);
+  }
+  88% {
+    transform: translateY(-2px) rotate(-4deg);
+  }
+}
+
+@keyframes gp-rb-arms-r {
+  0%,
+  66%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  78% {
+    transform: translateY(-5px) rotate(10deg);
+  }
+  88% {
+    transform: translateY(-2px) rotate(4deg);
+  }
+}
+
+@keyframes gp-rb-bar1 {
+  0%,
+  8% {
+    opacity: 0.2;
+    transform: scaleY(0.6);
+  }
+  18%,
+  92% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes gp-rb-bar2 {
+  0%,
+  28% {
+    opacity: 0.2;
+    transform: scaleY(0.6);
+  }
+  38%,
+  92% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes gp-rb-bar3 {
+  0%,
+  48% {
+    opacity: 0.2;
+    transform: scaleY(0.6);
+  }
+  58%,
+  92% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes gp-rb-bar4 {
+  0%,
+  66% {
+    opacity: 0.2;
+    transform: scaleY(0.6);
+  }
+  76%,
+  92% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes gp-rb-bolt {
+  0%,
+  64%,
+  96%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.88);
+  }
+  76%,
+  88% {
+    opacity: 1;
+    transform: scale(1.16);
+  }
+}
+
+.gp-rb-breath {
+  animation: gp-rb-breath 2.6s ease-in-out infinite;
+}
+.gp-rb-arms {
+  animation: gp-rb-arms 2.6s cubic-bezier(0.34, 1.4, 0.64, 1) infinite;
+}
+.gp-rb-arms-r {
+  animation: gp-rb-arms-r 2.6s cubic-bezier(0.34, 1.4, 0.64, 1) infinite;
+}
+.gp-rb-bar1 {
+  animation: gp-rb-bar1 2.6s ease-out infinite;
+}
+.gp-rb-bar2 {
+  animation: gp-rb-bar2 2.6s ease-out infinite;
+}
+.gp-rb-bar3 {
+  animation: gp-rb-bar3 2.6s ease-out infinite;
+}
+.gp-rb-bar4 {
+  animation: gp-rb-bar4 2.6s ease-out infinite;
+}
+.gp-rb-bolt {
+  animation: gp-rb-bolt 2.6s ease-out infinite;
+}
+
+/* 3. Palmada de Magnesio */
+@keyframes gp-rc-body {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  28% {
+    transform: translateY(2px);
+  }
+  44% {
+    transform: translateY(-3px);
+  }
+  62% {
+    transform: translateY(0px);
+  }
+}
+
+@keyframes gp-rc-arm-l {
+  0%,
+  100% {
+    transform: rotate(22deg);
+  }
+  26% {
+    transform: rotate(36deg);
+  }
+  42% {
+    transform: rotate(-12deg);
+  }
+  52% {
+    transform: rotate(-6deg);
+  }
+  72% {
+    transform: rotate(20deg);
+  }
+}
+
+@keyframes gp-rc-arm-r {
+  0%,
+  100% {
+    transform: rotate(-22deg);
+  }
+  26% {
+    transform: rotate(-36deg);
+  }
+  42% {
+    transform: rotate(12deg);
+  }
+  52% {
+    transform: rotate(6deg);
+  }
+  72% {
+    transform: rotate(-20deg);
+  }
+}
+
+@keyframes gp-rc-puff1 {
+  0%,
+  38% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.3);
+  }
+  48% {
+    opacity: 0.95;
+    transform: translate(-12px, -12px) scale(1.05);
+  }
+  82%,
+  100% {
+    opacity: 0;
+    transform: translate(-22px, -24px) scale(1.45);
+  }
+}
+
+@keyframes gp-rc-puff2 {
+  0%,
+  38% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.3);
+  }
+  48% {
+    opacity: 0.95;
+    transform: translate(12px, -13px) scale(1.05);
+  }
+  82%,
+  100% {
+    opacity: 0;
+    transform: translate(22px, -26px) scale(1.45);
+  }
+}
+
+@keyframes gp-rc-puff3 {
+  0%,
+  38% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.3);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translate(0px, -18px) scale(1.1);
+  }
+  84%,
+  100% {
+    opacity: 0;
+    transform: translate(0px, -32px) scale(1.5);
+  }
+}
+
+@keyframes gp-rc-sparks {
+  0%,
+  38%,
+  74%,
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  47% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  60% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+}
+
+.gp-rc-body {
+  animation: gp-rc-body 2.1s cubic-bezier(0.35, 0, 0.2, 1) infinite;
+}
+.gp-rc-arm-l {
+  animation: gp-rc-arm-l 2.1s cubic-bezier(0.35, 0, 0.2, 1) infinite;
+}
+.gp-rc-arm-r {
+  animation: gp-rc-arm-r 2.1s cubic-bezier(0.35, 0, 0.2, 1) infinite;
+}
+.gp-rc-puff1 {
+  animation: gp-rc-puff1 2.1s ease-out infinite;
+}
+.gp-rc-puff2 {
+  animation: gp-rc-puff2 2.1s ease-out infinite;
+}
+.gp-rc-puff3 {
+  animation: gp-rc-puff3 2.1s ease-out infinite;
+}
+.gp-rc-sparks {
+  animation: gp-rc-sparks 2.1s ease-out infinite;
+}
+
+/* 4. Choque de Puños */
+@keyframes gp-rf-left {
+  0%,
+  100% {
+    transform: translateX(-8px) rotate(-6deg);
+  }
+  22% {
+    transform: translateX(-16px) rotate(-11deg);
+  }
+  40% {
+    transform: translateX(3px) rotate(3deg);
+  }
+  48% {
+    transform: translateX(-2px) rotate(-2deg);
+  }
+  66% {
+    transform: translateX(-2px) rotate(-1deg);
+  }
+}
+
+@keyframes gp-rf-right {
+  0%,
+  100% {
+    transform: translateX(8px) rotate(6deg);
+  }
+  22% {
+    transform: translateX(16px) rotate(11deg);
+  }
+  40% {
+    transform: translateX(-3px) rotate(-3deg);
+  }
+  48% {
+    transform: translateX(2px) rotate(2deg);
+  }
+  66% {
+    transform: translateX(2px) rotate(1deg);
+  }
+}
+
+@keyframes gp-rf-burst {
+  0%,
+  34%,
+  74%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  43% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+  58% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+}
+
+@keyframes gp-rf-ring {
+  0%,
+  35% {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  44% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  72%,
+  100% {
+    opacity: 0;
+    transform: scale(1.65);
+  }
+}
+
+@keyframes gp-rf-badge {
+  0%,
+  35%,
+  60%,
+  100% {
+    transform: scale(1);
+  }
+  43% {
+    transform: scale(1.035);
+  }
+}
+
+.gp-rf-left {
+  animation: gp-rf-left 1.95s cubic-bezier(0.34, 1.35, 0.64, 1) infinite;
+}
+.gp-rf-right {
+  animation: gp-rf-right 1.95s cubic-bezier(0.34, 1.35, 0.64, 1) infinite;
+}
+.gp-rf-burst {
+  animation: gp-rf-burst 1.95s ease-out infinite;
+}
+.gp-rf-ring {
+  animation: gp-rf-ring 1.95s ease-out infinite;
+}
+.gp-rf-badge {
+  animation: gp-rf-badge 1.95s ease-out infinite;
+}
+
+/* 5. Zen de Titán */
+@keyframes gp-rz-float {
+  0%,
+  100% {
+    transform: translateY(2px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes gp-rz-r1 {
+  0%,
+  100% {
+    transform: scale(0.78);
+    opacity: 0.25;
+  }
+  50% {
+    transform: scale(1.14);
+    opacity: 0.7;
+  }
+}
+
+@keyframes gp-rz-r2 {
+  0%,
+  100% {
+    transform: scale(0.86);
+    opacity: 0.12;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.45;
+  }
+}
+
+@keyframes gp-rz-spark {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8) translateY(2px);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15) translateY(-3px);
+  }
+}
+
+.gp-rz-float {
+  animation: gp-rz-float 3s ease-in-out infinite;
+}
+.gp-rz-r1 {
+  animation: gp-rz-r1 3s ease-in-out infinite;
+}
+.gp-rz-r2 {
+  animation: gp-rz-r2 3s ease-in-out infinite 0.18s;
+}
+.gp-rz-spark {
+  animation: gp-rz-spark 3s ease-in-out infinite;
+}
+
+/* 6. Modo Temazo */
+@keyframes gp-rm-bob {
+  0%,
+  100% {
+    transform: translateY(0px) rotate(-4deg);
+  }
+  25% {
+    transform: translateY(3.5px) rotate(1deg);
+  }
+  50% {
+    transform: translateY(-1px) rotate(5deg);
+  }
+  75% {
+    transform: translateY(3.5px) rotate(-1deg);
+  }
+}
+
+@keyframes gp-rm-eq1 {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1.1);
+  }
+}
+
+@keyframes gp-rm-eq2 {
+  0%,
+  100% {
+    transform: scaleY(0.95);
+  }
+  50% {
+    transform: scaleY(0.3);
+  }
+}
+
+@keyframes gp-rm-eq3 {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+  }
+  50% {
+    transform: scaleY(1.15);
+  }
+}
+
+.gp-rm-bob {
+  animation: gp-rm-bob 1.2s ease-in-out infinite;
+}
+.gp-rm-eq1 {
+  animation: gp-rm-eq1 0.6s ease-in-out infinite;
+}
+.gp-rm-eq2 {
+  animation: gp-rm-eq2 0.6s ease-in-out infinite 0.15s;
+}
+.gp-rm-eq3 {
+  animation: gp-rm-eq3 0.6s ease-in-out infinite 0.3s;
+}
+
+/* 7. Hierro Echando Humo */
+@keyframes gp-ri-db {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.035) translateY(-1px);
+  }
+}
+
+@keyframes gp-ri-steam1 {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scaleX(0.9);
+  }
+  35% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px) scaleX(1.15);
+  }
+}
+
+@keyframes gp-ri-steam2 {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scaleX(1.1);
+  }
+  35% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-22px) scaleX(0.9);
+  }
+}
+
+@keyframes gp-ri-spark {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.gp-ri-db {
+  animation: gp-ri-db 1.8s ease-in-out infinite;
+}
+.gp-ri-steam1 {
+  animation: gp-ri-steam1 1.9s ease-out infinite;
+}
+.gp-ri-steam2 {
+  animation: gp-ri-steam2 1.9s ease-out infinite 0.65s;
+}
+.gp-ri-steam3 {
+  animation: gp-ri-steam1 1.9s ease-out infinite 1.25s;
+}
+.gp-ri-spark {
+  animation: gp-ri-spark 1.8s ease-out infinite;
+}
+
+/* 8. Estira y Suelta */
+@keyframes gp-rs-sway {
+  0%,
+  100% {
+    transform: rotate(-7deg);
+  }
+  50% {
+    transform: rotate(9deg);
+  }
+}
+
+@keyframes gp-rs-arc {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.06);
+  }
+}
+
+.gp-rs-sway {
+  animation: gp-rs-sway 2.6s ease-in-out infinite;
+}
+.gp-rs-arc {
+  animation: gp-rs-arc 2.6s ease-in-out infinite;
+}
+
+/* 9. Baile de Victoria */
+@keyframes gp-rd-legs {
+  0%,
+  50%,
+  100% {
+    transform: scaleY(1);
+  }
+  25%,
+  75% {
+    transform: scaleY(0.89);
+  }
+}
+
+@keyframes gp-rd-body {
+  0%,
+  100% {
+    transform: translate(-2.5px, 0px) rotate(-4deg);
+  }
+  25% {
+    transform: translate(0px, 3px) rotate(0deg);
+  }
+  50% {
+    transform: translate(2.5px, 0px) rotate(4deg);
+  }
+  75% {
+    transform: translate(0px, 3px) rotate(0deg);
+  }
+}
+
+@keyframes gp-rd-arml {
+  0%,
+  100% {
+    transform: rotate(-34deg);
+  }
+  50% {
+    transform: rotate(18deg);
+  }
+}
+
+@keyframes gp-rd-armr {
+  0%,
+  100% {
+    transform: rotate(18deg);
+  }
+  50% {
+    transform: rotate(-34deg);
+  }
+}
+
+@keyframes gp-rd-conf {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: translateY(4px) scale(0.75);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.1);
+  }
+}
+
+.gp-rd-legs {
+  animation: gp-rd-legs 1.1s ease-in-out infinite;
+}
+.gp-rd-body {
+  animation: gp-rd-body 1.1s ease-in-out infinite;
+}
+.gp-rd-arml {
+  animation: gp-rd-arml 1.1s ease-in-out infinite;
+}
+.gp-rd-armr {
+  animation: gp-rd-armr 1.1s ease-in-out infinite;
+}
+.gp-rd-conf {
+  animation: gp-rd-conf 1.1s ease-out infinite;
+}
+
+/* 10. Pulso de Acero */
+@keyframes gp-rp-beat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  14% {
+    transform: scale(1.13);
+  }
+  26% {
+    transform: scale(0.98);
+  }
+  38% {
+    transform: scale(1.08);
+  }
+  54% {
+    transform: scale(1);
+  }
+}
+
+@keyframes gp-rp-ecg {
+  0% {
+    stroke-dashoffset: 180;
+    opacity: 0.35;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: -180;
+    opacity: 0.35;
+  }
+}
+
+.gp-rp-beat {
+  animation: gp-rp-beat 1.5s ease-out infinite;
+}
+.gp-rp-ecg {
+  stroke-dasharray: 90 90;
+  animation: gp-rp-ecg 1.5s linear infinite;
+}
+
+/* 11. Tic-Tac del Banco */
+@keyframes gp-rw-hand {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gp-rw-shake {
+  0%,
+  72%,
+  100% {
+    transform: rotate(0deg);
+  }
+  78% {
+    transform: rotate(-7deg);
+  }
+  84% {
+    transform: rotate(7deg);
+  }
+  90% {
+    transform: rotate(-4deg);
+  }
+  96% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes gp-rw-btn {
+  0%,
+  66%,
+  100% {
+    transform: translateY(0px);
+  }
+  74% {
+    transform: translateY(3.5px);
+  }
+  82% {
+    transform: translateY(0px);
+  }
+}
+
+.gp-rw-hand {
+  animation: gp-rw-hand 2.4s linear infinite;
+}
+.gp-rw-shake {
+  animation: gp-rw-shake 2.4s ease-in-out infinite;
+}
+.gp-rw-btn {
+  animation: gp-rw-btn 2.4s ease-in-out infinite;
+}
+
+/* 12. Corona de Campeón */
+@keyframes gp-rk-float {
+  0%,
+  100% {
+    transform: translateY(1px) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(4deg);
+  }
+}
+
+@keyframes gp-rk-star {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.6) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15) rotate(25deg);
+  }
+}
+
+.gp-rk-float {
+  animation: gp-rk-float 2.2s ease-in-out infinite;
+}
+.gp-rk-star1 {
+  animation: gp-rk-star 1.8s ease-in-out infinite;
+}
+.gp-rk-star2 {
+  animation: gp-rk-star 1.8s ease-in-out infinite 0.6s;
+}
+.gp-rk-star3 {
+  animation: gp-rk-star 1.8s ease-in-out infinite 1.2s;
+}
+
+/* 13. ¡Sube de Nivel! */
+@keyframes gp-rl-arrow {
+  0% {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  30% {
+    opacity: 0.95;
+  }
+  85% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-28px);
+  }
+}
+
+@keyframes gp-rl-hero {
+  0%,
+  100% {
+    transform: translateY(1px);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.gp-rl-a1 {
+  animation: gp-rl-arrow 1.6s ease-out infinite;
+}
+.gp-rl-a2 {
+  animation: gp-rl-arrow 1.6s ease-out infinite 0.52s;
+}
+.gp-rl-a3 {
+  animation: gp-rl-arrow 1.6s ease-out infinite 1.04s;
+}
+.gp-rl-hero {
+  animation: gp-rl-hero 1.6s ease-in-out infinite;
+}
+
+/* 14. Toalla al Viento */
+@keyframes gp-rt-spin {
+  0%,
+  100% {
+    transform: scaleX(1) rotate(-6deg);
+  }
+  50% {
+    transform: scaleX(-1) rotate(6deg);
+  }
+}
+
+@keyframes gp-rt-arm {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+
+@keyframes gp-rt-body {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+
+.gp-rt-spin {
+  animation: gp-rt-spin 0.75s ease-in-out infinite;
+}
+.gp-rt-arm {
+  animation: gp-rt-arm 0.75s ease-in-out infinite;
+}
+.gp-rt-body {
+  animation: gp-rt-body 0.75s ease-in-out infinite;
+}
+
+/* Entrada suave de la tarjeta y de cada frase */
+@keyframes gp-rest-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.gp-rest-card-in {
+  animation: gp-rest-card-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.gp-rest-paused * {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gp-rest-emblem *,
+  .gp-rest-card-in {
+    animation: none !important;
+  }
+}

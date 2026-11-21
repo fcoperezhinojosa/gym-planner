@@ -16,6 +16,14 @@ import { isRedirectError, safeBackHref, safeBackLabel, withBackParams } from "..
 import { EMPTY_PAUSE, computeElapsedSec, formatClock, pauseTimer, resumeTimer } from "../src/lib/session-timer";
 import { epley1RM, suggestWeight, weekStreak } from "../src/lib/stats";
 import { BOOT_STEPS, LOADER_VARIANT_COUNT, WELCOME_MESSAGES, pickBootConfig, resolveBootConfig } from "../src/lib/boot-loader";
+import {
+  EMPTY_REST_ROTATION,
+  LONG_REST_THRESHOLD_SEC,
+  REST_ANIMATIONS,
+  REST_ANIMATION_BY_ID,
+  pickNextRestMoment,
+  shouldExpandRest,
+} from "../src/lib/rest-motivation";
 
 describe("propagate", () => {
   it("3x12 → cambiar una a 16 cambia todas", () => {
@@ -264,5 +272,46 @@ describe("pantalla de carga aleatoria", () => {
       expect(cfg.variant).not.toBe(2);
       expect(cfg.welcomeIndex).not.toBe(1);
     }
+  });
+});
+
+describe("animaciones motivacionales de descanso", () => {
+  it("define las 14 animaciones con IDs únicos y frases válidas", () => {
+    expect(REST_ANIMATIONS).toHaveLength(14);
+    expect(new Set(REST_ANIMATIONS.map((a) => a.id)).size).toBe(14);
+    for (const anim of REST_ANIMATIONS) {
+      expect(REST_ANIMATION_BY_ID[anim.id]).toBe(anim);
+      expect(anim.badge.length).toBeGreaterThan(0);
+      expect(anim.phrases.length).toBeGreaterThanOrEqual(2);
+      expect(anim.finalPhrase[0].length).toBeGreaterThan(0);
+      expect(anim.finalPhrase[1].length).toBeGreaterThan(0);
+    }
+  });
+
+  it("rota las 14 sin repetir hasta completar ciclo y sin repetir al reiniciar", () => {
+    let state = EMPTY_REST_ROTATION;
+    const cycle1: string[] = [];
+    for (let i = 0; i < 14; i++) {
+      const res = pickNextRestMoment(state);
+      cycle1.push(res.moment.animationId);
+      state = res.nextState;
+    }
+    expect(new Set(cycle1).size).toBe(14);
+    const lastOfCycle1 = cycle1[cycle1.length - 1];
+
+    // Al empezar el segundo ciclo, nunca repite inmediatamente el último del primero
+    for (let i = 0; i < 20; i++) {
+      const next = pickNextRestMoment(state);
+      expect(next.moment.animationId).not.toBe(lastOfCycle1);
+      expect(next.nextState.seenIds).toEqual([next.moment.animationId]);
+    }
+  });
+
+  it("despliega automáticamente solo en descansos de 60 s o más", () => {
+    expect(LONG_REST_THRESHOLD_SEC).toBe(60);
+    expect(shouldExpandRest(45)).toBe(false);
+    expect(shouldExpandRest(59)).toBe(false);
+    expect(shouldExpandRest(60)).toBe(true);
+    expect(shouldExpandRest(90)).toBe(true);
   });
 });

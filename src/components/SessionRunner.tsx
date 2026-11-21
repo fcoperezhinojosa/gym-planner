@@ -19,10 +19,18 @@ import {
   writePauseState,
   type TimerPauseState,
 } from "@/lib/session-timer";
+import {
+  EMPTY_REST_ROTATION,
+  pickNextRestMoment,
+  shouldExpandRest,
+  type RestMoment,
+  type RestRotationState,
+} from "@/lib/rest-motivation";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ExercisePicker } from "./ExercisePicker";
 import { ExerciseThumb } from "./ExerciseThumb";
 import { FinishWorkoutDialog } from "./FinishWorkoutDialog";
+import { RestTimerCard } from "./RestTimerCard";
 import { SaveRoutinePanel } from "./SaveRoutinePanel";
 import type { EditableSet } from "./SetsEditor";
 import { SessionSets } from "./SessionSets";
@@ -90,6 +98,10 @@ export function SessionRunner({
   const [restUntil, setRestUntil] = useState<number | null>(null);
   const [restPausedMs, setRestPausedMs] = useState<number | null>(null);
   const [restTotal, setRestTotal] = useState(0);
+  const [restExpanded, setRestExpanded] = useState(false);
+  const [restMoment, setRestMoment] = useState<RestMoment>({ animationId: "hydrate", phraseIndex: 0 });
+  const [restSetContext, setRestSetContext] = useState<{ setNumber: number; totalSets: number } | null>(null);
+  const restRotationRef = useRef<RestRotationState>(EMPTY_REST_ROTATION);
   const [localProgress, setLocalProgress] = useState<Record<number, Progress>>({});
   const cancelSavesRef = useRef(new Map<number, () => void>());
 
@@ -410,8 +422,13 @@ export function SessionRunner({
                 if (next) setActiveId(next.id);
               }
             }}
-            onCompleteSet={() => {
+            onCompleteSet={(setIndex, totalSets) => {
               if (finished || ex.restSeconds <= 0) return;
+              const { moment, nextState } = pickNextRestMoment(restRotationRef.current);
+              restRotationRef.current = nextState;
+              setRestMoment(moment);
+              setRestSetContext({ setNumber: setIndex + 1, totalSets });
+              setRestExpanded(shouldExpandRest(ex.restSeconds));
               setRestTotal(ex.restSeconds);
               if (isPaused) {
                 setRestPausedMs(ex.restSeconds * 1000);
@@ -437,51 +454,24 @@ export function SessionRunner({
       </div>
 
       {(restUntil || restPausedMs !== null) && restLeft > 0 && (
-        <div
-          role="timer"
-          aria-label={`Descanso: quedan ${formatClock(restLeft)}`}
-          className="fixed inset-x-0 bottom-20 z-40 mx-auto flex w-[min(92vw,26rem)] items-center gap-3 rounded-3xl bg-navy py-3 pl-4 pr-3 text-white shadow-[0_16px_40px_rgba(16,26,61,0.30)] md:bottom-6"
-        >
-          <svg aria-hidden="true" width="52" height="52" viewBox="0 0 52 52" fill="none" className="shrink-0">
-            <circle cx="26" cy="26" r="22" stroke="rgba(255,255,255,0.14)" strokeWidth="5" />
-            <circle
-              cx="26"
-              cy="26"
-              r="22"
-              stroke="var(--periwinkle)"
-              strokeWidth="5"
-              strokeLinecap="round"
-              strokeDasharray={`${Math.min(1, restLeft / Math.max(restTotal, restLeft, 1)) * 138.2} 138.2`}
-              transform="rotate(-90 26 26)"
-              className="transition-[stroke-dasharray] duration-1000 ease-linear"
-            />
-          </svg>
-          <div className="min-w-0 flex-1">
-            <p className="font-display text-2xl font-bold leading-tight tabular">{formatClock(restLeft)}</p>
-            <p className="text-xs text-periwinkle">{restPausedMs !== null ? "Descanso (en pausa)" : "Descanso"}</p>
-          </div>
-          <button
-            type="button"
-            className="h-11 cursor-pointer rounded-full border border-white/20 px-3.5 text-sm font-semibold"
-            onClick={() => {
-              setRestTotal((t) => t + 15);
-              if (restPausedMs !== null) setRestPausedMs((ms) => (ms ?? 0) + 15000);
-              else setRestUntil((r) => (r ?? Date.now()) + 15000);
-            }}
-          >
-            +15 s
-          </button>
-          <button
-            type="button"
-            className="h-11 cursor-pointer rounded-full bg-white px-4 text-sm font-bold text-navy"
-            onClick={() => {
-              setRestUntil(null);
-              setRestPausedMs(null);
-            }}
-          >
-            Saltar
-          </button>
-        </div>
+        <RestTimerCard
+          restLeft={restLeft}
+          restTotal={restTotal}
+          paused={restPausedMs !== null}
+          expanded={restExpanded}
+          moment={restMoment}
+          setContext={restSetContext}
+          onToggleExpanded={() => setRestExpanded((cur) => !cur)}
+          onAdd15={() => {
+            setRestTotal((t) => t + 15);
+            if (restPausedMs !== null) setRestPausedMs((ms) => (ms ?? 0) + 15000);
+            else setRestUntil((r) => (r ?? Date.now()) + 15000);
+          }}
+          onSkip={() => {
+            setRestUntil(null);
+            setRestPausedMs(null);
+          }}
+        />
       )}
 
       {picker && (
@@ -574,7 +564,7 @@ function SessionExerciseCard({
   registerCancel: (seId: number, cancel: () => void) => () => void;
   onSelect: () => void;
   onSets: (sets: EditableSet[]) => void;
-  onCompleteSet: () => void;
+  onCompleteSet: (setIndex: number, totalSets: number) => void;
   onRemove: () => void;
 }) {
   const [sets, setSets] = useState<EditableSet[]>(ex.sets);
@@ -698,7 +688,7 @@ function SessionExerciseCard({
       <SessionSets
         sets={sets}
         previous={previous?.sets}
-        onComplete={onCompleteSet}
+        onComplete={(setIndex) => onCompleteSet(setIndex, sets.length)}
         onChange={(next) => {
           setSets(next);
           queueSets(ex.id, next);
