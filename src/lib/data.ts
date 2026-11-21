@@ -394,6 +394,7 @@ export async function getSessionDetail(userId: number, sessionId: number) {
         exerciseId: s.sessionExercises.exerciseId,
         position: s.sessionExercises.position,
         restSeconds: s.sessionExercises.restSeconds,
+        notes: s.sessionExercises.notes,
       },
       info: {
         name: s.exercises.name,
@@ -423,6 +424,7 @@ export async function getSessionDetail(userId: number, sessionId: number) {
     exerciseId: string;
     position: number;
     restSeconds: number;
+    notes: string | null;
     name: string;
     nameEs: string | null;
     primaryMuscle: string;
@@ -443,6 +445,7 @@ export async function getSessionDetail(userId: number, sessionId: number) {
         exerciseId: row.ex.exerciseId,
         position: row.ex.position,
         restSeconds: row.ex.restSeconds,
+        notes: row.ex.notes,
         name: info?.nameEs ?? info?.name ?? "",
         nameEs: info?.nameEs ?? null,
         primaryMuscle: info?.primaryMuscle ?? "",

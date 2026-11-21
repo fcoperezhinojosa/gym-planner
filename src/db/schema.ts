@@ -172,6 +172,7 @@ export const sessionExercises = pgTable(
     exerciseId: text("exercise_id").notNull().references(() => exercises.id),
     position: integer("position").notNull(),
     restSeconds: integer("rest_seconds").notNull().default(60),
+    notes: text("notes"),
   },
   (t) => [
     index("session_exercises_session_idx").on(t.sessionId),

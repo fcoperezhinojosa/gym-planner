@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { addExercisesToSession, deleteWorkout, finishWorkout, removeSessionExercise, saveSessionSets } from "@/app/actions";
+import { addExercisesToSession, deleteWorkout, finishWorkout, removeSessionExercise, saveSessionExerciseNotes, saveSessionSets } from "@/app/actions";
 import type { SessionDetail } from "@/lib/data";
 import { INTENSITIES, type Intensity } from "@/lib/kcal";
 import { equipmentLabel, exerciseImage, muscleLabel } from "@/lib/labels";
 import { isRedirectError, withBackParams } from "@/lib/navigation";
-import { clearFinish, clearSets, pendingFinish, pendingSets, queueSets } from "@/lib/offline-queue";
+import { clearExerciseNotes, clearFinish, clearSets, pendingExerciseNotes, pendingFinish, pendingSets, queueExerciseNotes, queueSets } from "@/lib/offline-queue";
 import {
   EMPTY_PAUSE,
   clearPauseState,
@@ -27,6 +27,7 @@ import {
   type RestRotationState,
 } from "@/lib/rest-motivation";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { ExerciseNotesField } from "./ExerciseNotesField";
 import { ExercisePicker } from "./ExercisePicker";
 import { ExerciseThumb } from "./ExerciseThumb";
 import { FinishWorkoutDialog } from "./FinishWorkoutDialog";
@@ -48,10 +49,18 @@ type Prev = Record<string, { date: string; sets: { reps: number; weightKg: numbe
 async function syncSession(sessionId: number, exerciseIds: number[]) {
   for (const id of exerciseIds) {
     const p = pendingSets(id);
-    if (!p) continue;
-    const res = await saveSessionSets(id, p);
-    if ((res && "missing" in res) || JSON.stringify(pendingSets(id)) === JSON.stringify(p)) {
-      clearSets(id);
+    if (p) {
+      const res = await saveSessionSets(id, p);
+      if ((res && "missing" in res) || JSON.stringify(pendingSets(id)) === JSON.stringify(p)) {
+        clearSets(id);
+      }
+    }
+    const pn = pendingExerciseNotes(id);
+    if (pn !== null) {
+      const res = await saveSessionExerciseNotes(id, pn);
+      if ((res && "missing" in res) || pendingExerciseNotes(id) === pn) {
+        clearExerciseNotes(id);
+      }
     }
   }
   const f = pendingFinish(sessionId);
@@ -215,7 +224,10 @@ export function SessionRunner({
     for (const cancel of cancelSavesRef.current.values()) cancel();
     clearFinish(session.id);
     clearPauseState(session.id);
-    for (const e of session.exercises) clearSets(e.id);
+    for (const e of session.exercises) {
+      clearSets(e.id);
+      clearExerciseNotes(e.id);
+    }
     start(async () => {
       try {
         await deleteWorkout(session.id);
@@ -232,6 +244,7 @@ export function SessionRunner({
     const target = removingEx;
     cancelSavesRef.current.get(target.id)?.();
     clearSets(target.id);
+    clearExerciseNotes(target.id);
     start(async () => {
       try {
         await removeSessionExercise(target.id);
@@ -568,27 +581,50 @@ function SessionExerciseCard({
   onRemove: () => void;
 }) {
   const [sets, setSets] = useState<EditableSet[]>(ex.sets);
+  const [notes, setNotes] = useState(ex.notes ?? "");
   const { schedule, cancel, status } = useDebouncedSave(async (v: EditableSet[]) => {
     const res = await saveSessionSets(ex.id, v);
     if ((res && "missing" in res) || JSON.stringify(pendingSets(ex.id)) === JSON.stringify(v)) {
       clearSets(ex.id);
     }
   }, 400);
+  const {
+    schedule: scheduleNotes,
+    cancel: cancelNotes,
+    status: notesStatus,
+  } = useDebouncedSave(async (v: string) => {
+    const res = await saveSessionExerciseNotes(ex.id, v);
+    if ((res && "missing" in res) || pendingExerciseNotes(ex.id) === v) {
+      clearExerciseNotes(ex.id);
+    }
+  }, 500);
 
-  useEffect(() => registerCancel(ex.id, cancel), [ex.id, cancel, registerCancel]);
+  useEffect(
+    () =>
+      registerCancel(ex.id, () => {
+        cancel();
+        cancelNotes();
+      }),
+    [ex.id, cancel, cancelNotes, registerCancel],
+  );
 
   const onSetsRef = useRef(onSets);
   useEffect(() => {
     onSetsRef.current = onSets;
   });
 
-  // Si quedaron series sin enviar (sin cobertura), se recuperan de la copia local.
+  // Si quedaron series o comentarios sin enviar (sin cobertura), se recuperan de la copia local.
   useEffect(() => {
     const p = pendingSets(ex.id);
-    if (!p) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSets(p);
-    onSetsRef.current(p);
+    if (p) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSets(p);
+      onSetsRef.current(p);
+    }
+    const pn = pendingExerciseNotes(ex.id);
+    if (pn !== null) {
+      setNotes(pn);
+    }
   }, [ex.id]);
 
   const done = progress.done;
@@ -684,6 +720,18 @@ function SessionExerciseCard({
           </svg>
         </button>
       </div>
+
+      <ExerciseNotesField
+        className="mb-3"
+        value={notes}
+        status={notesStatus}
+        offlineErrorText="Sin conexión: comentario guardado en el móvil"
+        onChange={(next) => {
+          setNotes(next);
+          queueExerciseNotes(ex.id, next);
+          scheduleNotes(next);
+        }}
+      />
 
       <SessionSets
         sets={sets}

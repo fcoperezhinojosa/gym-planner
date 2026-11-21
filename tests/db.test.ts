@@ -223,4 +223,20 @@ describe("db schema indexes & phase 3 queries (PGlite)", () => {
       { date: "2026-11-12", reps: 8, weightKg: 75 },
     ]);
   });
+
+  it("guarda y actualiza comentarios (notes) en sessionExercises", async () => {
+    const [ws] = await db
+      .insert(s.workoutSessions)
+      .values({ userId, name: "Notas", date: "2026-11-21" })
+      .returning({ id: s.workoutSessions.id });
+    const [se] = await db
+      .insert(s.sessionExercises)
+      .values({ sessionId: ws.id, exerciseId: "ex-bench", position: 0, restSeconds: 60, notes: "Asiento en 4" })
+      .returning();
+    expect(se.notes).toBe("Asiento en 4");
+
+    await db.update(s.sessionExercises).set({ notes: "Asiento en 5, codos 45°" }).where(eq(s.sessionExercises.id, se.id));
+    const [updated] = await db.select().from(s.sessionExercises).where(eq(s.sessionExercises.id, se.id));
+    expect(updated.notes).toBe("Asiento en 5, codos 45°");
+  });
 });

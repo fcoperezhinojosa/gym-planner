@@ -23,6 +23,7 @@ export type QueuedFinish = {
 };
 
 const SETS = "gym:sets:";
+const EX_NOTES = "gym:ex-notes:";
 const FINISH = "gym:finish:";
 
 function read<T>(key: string): T | null {
@@ -53,6 +54,10 @@ function remove(key: string) {
 export const pendingSets = (seId: number) => read<QueuedSet[]>(SETS + seId);
 export const queueSets = (seId: number, sets: QueuedSet[]) => write(SETS + seId, sets);
 export const clearSets = (seId: number) => remove(SETS + seId);
+
+export const pendingExerciseNotes = (seId: number) => read<string>(EX_NOTES + seId);
+export const queueExerciseNotes = (seId: number, notes: string) => write(EX_NOTES + seId, notes);
+export const clearExerciseNotes = (seId: number) => remove(EX_NOTES + seId);
 
 export const pendingFinish = (sessionId: number) => read<QueuedFinish>(FINISH + sessionId);
 export const queueFinish = (sessionId: number, v: QueuedFinish) => write(FINISH + sessionId, v);

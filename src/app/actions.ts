@@ -314,6 +314,15 @@ export async function saveRoutineSets(reId: number, sets: SetInput[], restSecond
   updateTag(cacheTags.routines(user.id));
 }
 
+export async function saveRoutineExerciseNotes(reId: number, notes: string) {
+  const user = await requireUser();
+  const { routineId } = await ownRoutineExercise(user.id, reId);
+  const db = await getDb();
+  const clean = notes.trim().slice(0, 500) || null;
+  await db.update(s.routineExercises).set({ notes: clean }).where(eq(s.routineExercises.id, reId));
+  updateTag(cacheTags.routine(routineId));
+}
+
 /* ───────────── Plan ───────────── */
 
 export async function savePlan(form: FormData) {
@@ -421,7 +430,7 @@ async function copySessionExercisesToRoutine(db: DB, sessionId: number, targetRo
   if (!sessionExs.length) return;
   const insertedExs = await db
     .insert(s.routineExercises)
-    .values(sessionExs.map((se, i) => ({ routineId: targetRoutineId, exerciseId: se.exerciseId, position: i, restSeconds: se.restSeconds })))
+    .values(sessionExs.map((se, i) => ({ routineId: targetRoutineId, exerciseId: se.exerciseId, position: i, restSeconds: se.restSeconds, notes: se.notes })))
     .returning({ id: s.routineExercises.id });
   const setRows = sessionExs.flatMap((se, idx) => {
     const routineExerciseId = insertedExs[idx].id;
@@ -469,7 +478,7 @@ export async function startWorkout(routineId: number | null, date?: string) {
   if (recent) redirect(`/sesion/${recent.id}`);
 
   let name = "Entrenamiento libre";
-  let template: { exerciseId: string; restSeconds: number; sets: { reps: number; weightKg: number; type: string }[] }[] = [];
+  let template: { exerciseId: string; restSeconds: number; notes: string | null; sets: { reps: number; weightKg: number; type: string }[] }[] = [];
   let last = new Map<string, { date: string; sets: { reps: number; weightKg: number; completed: boolean }[] }>();
   if (routineId) {
     const [r] = await db.select().from(s.routines).where(and(eq(s.routines.id, routineId), eq(s.routines.userId, user.id)));
@@ -495,6 +504,7 @@ export async function startWorkout(routineId: number | null, date?: string) {
       template = exs.map((e) => ({
         exerciseId: e.exerciseId,
         restSeconds: e.restSeconds,
+        notes: e.notes,
         sets: setsByEx.get(e.id) ?? [],
       }));
     }
@@ -503,7 +513,7 @@ export async function startWorkout(routineId: number | null, date?: string) {
   if (template.length) {
     const insertedExs = await db
       .insert(s.sessionExercises)
-      .values(template.map((t, i) => ({ sessionId: session.id, exerciseId: t.exerciseId, position: i, restSeconds: t.restSeconds })))
+      .values(template.map((t, i) => ({ sessionId: session.id, exerciseId: t.exerciseId, position: i, restSeconds: t.restSeconds, notes: t.notes })))
       .returning({ id: s.sessionExercises.id });
     // Prellenado: mismo nº de series que la plantilla; pesos/reps de la última vez si existen.
     const setRows = template.flatMap((t, idx) => {
@@ -569,6 +579,17 @@ export async function saveSessionSets(seId: number, sets: SetInput[]): Promise<{
   if (rows.length) await db.insert(s.sessionSets).values(rows);
   updateTag(cacheTags.session(owned.sessionId));
   if (owned.endedAt !== null) updateTag(cacheTags.analytics(user.id));
+  return { ok: true };
+}
+
+export async function saveSessionExerciseNotes(seId: number, notes: string): Promise<{ ok: true } | { ok: false; missing: true }> {
+  const user = await requireUser();
+  const owned = await findOwnedSessionExercise(user.id, seId);
+  if (!owned) return { ok: false, missing: true };
+  const db = await getDb();
+  const clean = notes.trim().slice(0, 500) || null;
+  await db.update(s.sessionExercises).set({ notes: clean }).where(eq(s.sessionExercises.id, seId));
+  updateTag(cacheTags.session(owned.sessionId));
   return { ok: true };
 }
 
@@ -648,10 +669,14 @@ export async function finishWorkout(
     }
     const routineByEx = new Map(res.map((r) => [r.exerciseId, r]));
     const targetSetsByReId = new Map<number, typeof allSets>();
+    const notesUpdates: { id: number; notes: string | null }[] = [];
     for (const se of detail) {
       const re = routineByEx.get(se.exerciseId);
       if (!re) continue;
       targetSetsByReId.set(re.id, setsByEx.get(se.id) ?? []);
+      if (se.notes !== re.notes) {
+        notesUpdates.push({ id: re.id, notes: se.notes });
+      }
     }
     const targetReIds = [...targetSetsByReId.keys()];
     if (targetReIds.length) {
@@ -660,6 +685,9 @@ export async function finishWorkout(
         sets.map((x, i) => ({ routineExerciseId, position: i, reps: x.reps, weightKg: x.weightKg, type: x.type })),
       );
       if (newSets.length) await db.insert(s.routineSets).values(newSets);
+      for (const u of notesUpdates) {
+        await db.update(s.routineExercises).set({ notes: u.notes }).where(eq(s.routineExercises.id, u.id));
+      }
       updatedRoutineId = session.routineId;
     }
   }

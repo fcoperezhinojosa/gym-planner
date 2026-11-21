@@ -8,6 +8,7 @@ import {
   duplicateRoutine,
   moveRoutineExercise,
   removeRoutineExercise,
+  saveRoutineExerciseNotes,
   saveRoutineSets,
   startWorkout,
   updateRoutine,
@@ -16,6 +17,7 @@ import type { RoutineDetail } from "@/lib/data";
 import { equipmentLabel, muscleLabel } from "@/lib/labels";
 import { isRedirectError, withBackParams } from "@/lib/navigation";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { ExerciseNotesField } from "./ExerciseNotesField";
 import { ExercisePicker } from "./ExercisePicker";
 import { ExerciseThumb } from "./ExerciseThumb";
 import { SetsEditor, type EditableSet } from "./SetsEditor";
@@ -211,9 +213,22 @@ function RoutineExerciseCard({
 }) {
   const [sets, setSets] = useState<EditableSet[]>(ex.sets);
   const [rest, setRest] = useState(ex.restSeconds);
+  const [notes, setNotes] = useState(ex.notes ?? "");
   const { schedule, cancel, status } = useDebouncedSave((v: { sets: EditableSet[]; rest: number }) => saveRoutineSets(ex.id, v.sets, v.rest));
+  const {
+    schedule: scheduleNotes,
+    cancel: cancelNotes,
+    status: notesStatus,
+  } = useDebouncedSave((v: string) => saveRoutineExerciseNotes(ex.id, v), 500);
 
-  useEffect(() => registerCancel(ex.id, cancel), [ex.id, cancel, registerCancel]);
+  useEffect(
+    () =>
+      registerCancel(ex.id, () => {
+        cancel();
+        cancelNotes();
+      }),
+    [ex.id, cancel, cancelNotes, registerCancel],
+  );
 
   const detailHref = withBackParams(
     `/ejercicios/${encodeURIComponent(ex.exerciseId)}`,
@@ -262,6 +277,15 @@ function RoutineExerciseCard({
           ✕
         </button>
       </div>
+      <ExerciseNotesField
+        className="mb-3"
+        value={notes}
+        status={notesStatus}
+        onChange={(next) => {
+          setNotes(next);
+          scheduleNotes(next);
+        }}
+      />
       <SetsEditor
         sets={sets}
         onChange={(s) => {
