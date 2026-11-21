@@ -13,19 +13,31 @@ export async function POST() {
     );
   }
 
-  const result = await sendPushToUser(user.id, {
-    title: "Notificaciones activas",
-    body: "Así te avisaré al final del día para registrar tu actividad y las kcal.",
-    url: "/cierre",
-    tag: "test-notification",
-  });
+  try {
+    const result = await sendPushToUser(user.id, {
+      title: "Notificaciones activas",
+      body: "Así te avisaré al final del día para registrar tu actividad y las kcal.",
+      url: "/cierre",
+      tag: "test-notification",
+    });
 
-  if (result.sent === 0) {
-    return NextResponse.json(
-      { error: "No hay ningún dispositivo suscrito activo. Vuelve a activar las notificaciones." },
-      { status: 404 },
-    );
+    if (result.sent === 0) {
+      if (result.failed > 0) {
+        return NextResponse.json(
+          { error: `Error al enviar la notificación: ${result.lastError ?? "fallo del servicio push"}` },
+          { status: 502 },
+        );
+      }
+      return NextResponse.json(
+        { error: "No hay ningún dispositivo suscrito activo. Vuelve a activar las notificaciones." },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({ ok: true, ...result });
+  } catch (err) {
+    console.error("[push/test] Error inesperado:", err);
+    const message = err instanceof Error ? err.message : "Error inesperado en el servidor";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json({ ok: true, ...result });
 }

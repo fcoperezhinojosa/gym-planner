@@ -11,19 +11,32 @@ import {
 
 let vapidInitialized = false;
 
+function cleanEnv(value: string | undefined): string {
+  return (value ?? "").trim().replace(/^['"]|['"]$/g, "");
+}
+
 export function getVapidPublicKey(): string {
-  return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() ?? "";
+  return cleanEnv(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
 }
 
 export function isPushConfigured(): boolean {
-  return Boolean(getVapidPublicKey() && process.env.VAPID_PRIVATE_KEY?.trim());
+  return Boolean(getVapidPublicKey() && cleanEnv(process.env.VAPID_PRIVATE_KEY));
+}
+
+function normalizeVapidSubject(raw: string): string {
+  if (!raw) return "mailto:admin@gym-planner.local";
+  if (raw.startsWith("mailto:") || raw.startsWith("https://") || raw.startsWith("http://")) {
+    return raw;
+  }
+  if (raw.includes("@")) return `mailto:${raw}`;
+  return raw;
 }
 
 function ensureVapid() {
   if (vapidInitialized) return;
   const publicKey = getVapidPublicKey();
-  const privateKey = process.env.VAPID_PRIVATE_KEY?.trim() ?? "";
-  const subject = process.env.VAPID_SUBJECT?.trim() || "mailto:admin@gym-planner.local";
+  const privateKey = cleanEnv(process.env.VAPID_PRIVATE_KEY);
+  const subject = normalizeVapidSubject(cleanEnv(process.env.VAPID_SUBJECT));
   if (!publicKey || !privateKey) {
     throw new Error("Faltan las claves VAPID (NEXT_PUBLIC_VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY)");
   }
@@ -34,7 +47,7 @@ function ensureVapid() {
 export async function sendPushToUser(
   userId: number,
   payload: PushPayload,
-): Promise<{ sent: number; removed: number; failed: number }> {
+): Promise<{ sent: number; removed: number; failed: number; lastError?: string }> {
   ensureVapid();
   const db = await getDb();
   const subs = await db
@@ -48,6 +61,7 @@ export async function sendPushToUser(
   let sent = 0;
   let removed = 0;
   let failed = 0;
+  let lastError: string | undefined;
   const now = new Date();
 
   await Promise.all(
@@ -76,13 +90,15 @@ export async function sendPushToUser(
           await db.delete(s.pushSubscriptions).where(eq(s.pushSubscriptions.id, sub.id));
         } else {
           failed += 1;
+          const msg = err instanceof Error ? err.message : String(err);
+          lastError = statusCode ? `HTTP ${statusCode}: ${msg}` : msg;
           console.error(`[push] Error enviando notificación a sub ${sub.id}:`, err);
         }
       }
     }),
   );
 
-  return { sent, removed, failed };
+  return { sent, removed, failed, lastError };
 }
 
 /**

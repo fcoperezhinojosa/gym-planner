@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
-import { updateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { getDb, schema as s } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
 import { cacheTags } from "@/lib/cache-tags";
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     })
     .where(eq(s.users.id, user.id));
 
-  updateTag(cacheTags.userProfile(user.id));
+  revalidateTag(cacheTags.userProfile(user.id), { expire: 0 });
 
   return NextResponse.json({ ok: true });
 }
