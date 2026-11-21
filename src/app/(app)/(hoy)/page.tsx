@@ -73,13 +73,23 @@ const RING_GAP = 14;
 type RingSegment = { color: string; opacity?: number };
 
 /** Anillo del día: un tramo por actividad de hoy, con el mismo color que su fila en el listado. */
-function DayRing({ segments, size, label, children }: { segments: RingSegment[]; size: number; label: string; children: React.ReactNode }) {
+function DayRing({
+  segments,
+  sizeClass,
+  label,
+  children,
+}: {
+  segments: RingSegment[];
+  sizeClass: string;
+  label: string;
+  children: React.ReactNode;
+}) {
   const n = Math.max(segments.length, 1);
   const gap = n > 1 ? RING_GAP : 0;
   const seg = RING_C / n - gap;
   return (
-    <div className="relative mx-auto mt-2 shrink-0" style={{ width: size, height: size }}>
-      <svg role="img" aria-label={label} width={size} height={size} viewBox="0 0 300 300" fill="none" className="absolute inset-0">
+    <div className={cx("relative mx-auto shrink-0 md:mt-2", sizeClass)}>
+      <svg role="img" aria-label={label} viewBox="0 0 300 300" fill="none" className="absolute inset-0 h-full w-full">
         <circle cx="150" cy="150" r="114" fill="var(--navy)" />
         {(segments.length ? segments : [{ color: "var(--card-2)" }]).map((sg, i) => (
           <circle
@@ -97,25 +107,25 @@ function DayRing({ segments, size, label, children }: { segments: RingSegment[];
           />
         ))}
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-10 text-center">{children}</div>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-8 text-center md:gap-2 md:px-10">{children}</div>
     </div>
   );
 }
 
 function heroTitleSize(title: string) {
-  if (title.length <= 5) return "text-[60px]";
-  if (title.length <= 8) return "text-[40px]";
-  if (title.length <= 14) return "text-[28px]";
-  return "text-[22px]";
+  if (title.length <= 5) return "text-[48px] md:text-[60px]";
+  if (title.length <= 8) return "text-[32px] md:text-[40px]";
+  if (title.length <= 14) return "text-[24px] md:text-[28px]";
+  return "text-[20px] md:text-[22px]";
 }
 
 export default function TodayPage() {
   return (
-    <div className="relative space-y-5 overflow-x-clip">
+    <div className="relative space-y-3.5 overflow-x-clip md:space-y-5">
       {/* Resplandor tras el anillo */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-[250px] -z-10 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+        className="pointer-events-none absolute left-1/2 top-[195px] -z-10 h-[440px] w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-full md:top-[250px] md:h-[520px] md:w-[520px]"
         style={{ background: "radial-gradient(circle, rgba(47,85,244,0.12) 0%, rgba(47,85,244,0.06) 40%, rgba(47,85,244,0) 65%)" }}
       />
       <Suspense fallback={<TodayLoading />}>
@@ -166,11 +176,11 @@ async function TodayContent() {
   return (
     <>
       <header className="flex items-end justify-between gap-3">
-        <div className="min-w-0 space-y-1">
+        <div className="min-w-0 space-y-0.5 md:space-y-1">
           <p className="text-sm text-muted">
             {WEEKDAYS[wd]}, {d} de {MONTHS[m - 1].toLowerCase()}
           </p>
-          <h1 className="font-display text-[30px] font-bold leading-[1.1] tracking-tight">
+          <h1 className="font-display text-[26px] font-bold leading-[1.1] tracking-tight md:text-[30px]">
             {done ? "Buen trabajo" : "Hola"}, {user.name.split(" ")[0]}
           </h1>
         </div>
@@ -196,13 +206,13 @@ async function TodayContent() {
 
       {done ? (
         <>
-          <DayRing segments={doneSegments} size={280} label={`Hoy: ${items.map((i) => i.name).join(", ")}`}>
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.16em] text-periwinkle">
+          <DayRing segments={doneSegments} sizeClass="h-[236px] w-[236px] md:h-[280px] md:w-[280px]" label={`Hoy: ${items.map((i) => i.name).join(", ")}`}>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.16em] text-periwinkle md:text-xs">
               <CheckIcon size={14} />
               HECHO HOY
             </span>
-            <span className="font-display text-[68px] font-bold leading-none tracking-[-0.03em] text-white tabular">{totalKcal.toLocaleString("es-ES")}</span>
-            <span className="text-sm text-[#c5ceea]">kcal · {totalMin} min</span>
+            <span className="font-display text-[52px] font-bold leading-none tracking-[-0.03em] text-white tabular md:text-[68px]">{totalKcal.toLocaleString("es-ES")}</span>
+            <span className="text-xs text-[#c5ceea] md:text-sm">kcal · {totalMin} min</span>
           </DayRing>
 
           <section aria-label="Actividad de hoy" className="flex flex-wrap items-center justify-between gap-x-3 rounded-[20px] border border-line bg-surface px-4 pb-1.5 pt-3.5">
@@ -253,20 +263,20 @@ async function TodayContent() {
         </>
       ) : (
         <TodayPlanProvider date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions}>
-          <DayRing segments={todoSegments} size={300} label={`Hoy toca: ${heroTitle}`}>
-            <span className="text-xs font-semibold tracking-[0.16em] text-periwinkle">
+          <DayRing segments={todoSegments} sizeClass="h-[244px] w-[244px] md:h-[300px] md:w-[300px]" label={`Hoy toca: ${heroTitle}`}>
+            <span className="text-[11px] font-semibold tracking-[0.16em] text-periwinkle md:text-xs">
               HOY TOCA{day.planned.source === "override" && " · SOLO HOY"}
             </span>
             <span className={cx("font-display font-bold leading-none tracking-[-0.02em] text-white [overflow-wrap:anywhere]", heroTitleSize(heroTitle))}>
               {heroTitle}
             </span>
             {routine && routine.exercises.length > 0 && (
-              <span className="text-sm text-[#c5ceea]">
+              <span className="text-xs text-[#c5ceea] md:text-sm">
                 {routine.exercises.length} {routine.exercises.length === 1 ? "ejercicio" : "ejercicios"}
                 {sets > 0 && <> · {sets} series</>}
               </span>
             )}
-            {day.planned.label && <span className="text-sm text-[#c5ceea]">{day.planned.label}</span>}
+            {day.planned.label && <span className="text-xs text-[#c5ceea] md:text-sm">{day.planned.label}</span>}
             <TodayPlanTrigger />
           </DayRing>
 
@@ -275,9 +285,9 @@ async function TodayContent() {
           <div className="space-y-1">
             {canStartRoutine && routine && (
               <form action={startWorkout.bind(null, routine.id, today)}>
-                <StartWorkoutButton className="flex h-16 w-full cursor-pointer items-center justify-between rounded-full bg-accent pl-6 pr-2.5 text-lg font-bold text-accent-fg transition hover:brightness-110 active:scale-[.99]">
+                <StartWorkoutButton className="flex h-14 w-full cursor-pointer items-center justify-between rounded-full bg-accent pl-5 pr-2 text-base font-bold text-accent-fg transition hover:brightness-110 active:scale-[.99] md:h-16 md:pl-6 md:pr-2.5 md:text-lg">
                   <span className="truncate">Empezar {routine.name}</span>
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-accent">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-accent md:h-11 md:w-11">
                     <PlayIcon />
                   </span>
                 </StartWorkoutButton>
@@ -288,7 +298,7 @@ async function TodayContent() {
                 Rutina vacía. <Link className="font-semibold text-accent-text hover:underline" href={`/rutinas/${routine.id}`}>Añade ejercicios</Link>
               </p>
             )}
-            <div className="flex flex-wrap items-center justify-center [&>button]:h-11 [&>button]:rounded-lg [&>button]:text-sm [&>button]:font-semibold [&>button]:text-muted">
+            <div className="flex flex-wrap items-center justify-center [&>button]:h-9 [&>button]:rounded-lg [&>button]:text-sm [&>button]:font-semibold [&>button]:text-muted md:[&>button]:h-11">
               <AddActivityToggle className="text-muted">{activityForm}</AddActivityToggle>
             </div>
           </div>
@@ -303,12 +313,12 @@ async function TodayContent() {
       )}
 
       <div className="grid grid-cols-2 gap-2.5">
-        <div className="flex h-[140px] flex-col justify-between rounded-[26px] bg-accent-soft p-[18px]">
+        <div className="flex h-[112px] flex-col justify-between rounded-[22px] bg-accent-soft p-3.5 md:h-[140px] md:rounded-[26px] md:p-[18px]">
           <span className="text-[13px] font-semibold text-accent-ink">Esta semana</span>
-          <div className="space-y-2.5">
-            <span className="font-display text-[44px] font-bold leading-none tabular">
+          <div className="space-y-2 md:space-y-2.5">
+            <span className="font-display text-[36px] font-bold leading-none tabular md:text-[44px]">
               {sum.done}
-              <span className="text-2xl text-accent-ink opacity-80">/{sum.planned}</span>
+              <span className="text-xl text-accent-ink opacity-80 md:text-2xl">/{sum.planned}</span>
             </span>
             <span role="img" aria-label={`${sum.done} de ${sum.planned} entrenos hechos`} className="flex gap-[5px]">
               {Array.from({ length: Math.max(sum.planned, 1) }, (_, i) => (
@@ -317,17 +327,17 @@ async function TodayContent() {
             </span>
           </div>
         </div>
-        <div className="flex h-[140px] flex-col justify-between rounded-[26px] bg-mint p-[18px]">
+        <div className="flex h-[112px] flex-col justify-between rounded-[22px] bg-mint p-3.5 md:h-[140px] md:rounded-[26px] md:p-[18px]">
           <span className="text-[13px] font-semibold text-mint-ink">Kcal semana</span>
           <div className="space-y-0.5">
-            <span className="block font-display text-[44px] font-bold leading-none tabular">{sum.kcal.toLocaleString("es-ES")}</span>
-            <span className="block text-[13px] text-mint-ink">{sum.minutes} min entrenados</span>
+            <span className="block font-display text-[36px] font-bold leading-none tabular md:text-[44px]">{sum.kcal.toLocaleString("es-ES")}</span>
+            <span className="block text-xs text-mint-ink md:text-[13px]">{sum.minutes} min entrenados</span>
           </div>
         </div>
       </div>
 
       {!done && (
-        <section aria-label="Plan de la semana" className="space-y-3.5 rounded-3xl border border-line bg-surface px-[18px] py-4">
+        <section aria-label="Plan de la semana" className="space-y-2.5 rounded-3xl border border-line bg-surface px-4 py-3 md:space-y-3.5 md:px-[18px] md:py-4">
           <div className="flex items-baseline justify-between">
             <h2 className="font-display text-[17px] font-bold">Plan de la semana</h2>
             <Link href="/calendario" prefetch={true} className="-my-3.5 inline-flex h-11 items-center text-[13px] font-semibold text-accent-text hover:underline">
