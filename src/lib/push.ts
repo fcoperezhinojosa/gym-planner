@@ -1,4 +1,5 @@
 import "server-only";
+import crypto from "node:crypto";
 import * as webpush from "web-push";
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { getDb, schema as s } from "@/db";
@@ -41,6 +42,14 @@ function ensureVapid() {
     throw new Error("Faltan las claves VAPID (NEXT_PUBLIC_VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY)");
   }
   webpush.setVapidDetails(subject, publicKey, privateKey);
+  const ecdh = crypto.createECDH("prime256v1");
+  ecdh.setPrivateKey(Buffer.from(privateKey, "base64url"));
+  const derivedPublicKey = ecdh.getPublicKey().toString("base64url");
+  if (derivedPublicKey !== publicKey) {
+    throw new Error(
+      "NEXT_PUBLIC_VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY no son pareja. Genera ambas juntas con `npx web-push generate-vapid-keys` y pégalas en Vercel.",
+    );
+  }
   vapidInitialized = true;
 }
 
