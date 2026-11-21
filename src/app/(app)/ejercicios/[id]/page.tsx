@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { BackLink } from "@/components/BackLink";
 import { ProgressChart } from "@/components/Charts";
@@ -9,12 +10,20 @@ import { formatShort } from "@/lib/dates";
 import { CATEGORIES, equipmentLabel, exerciseImage, muscleLabel } from "@/lib/labels";
 import { safeBackHref, safeBackLabel } from "@/lib/navigation";
 import { epley1RM } from "@/lib/stats";
+import ExerciseLoading from "./loading";
 
 export const metadata: Metadata = { title: "Ejercicio" };
 
-export default async function ExercisePage({ params, searchParams }: PageProps<"/ejercicios/[id]">) {
-  const user = await requireUser();
-  const [{ id }, sp] = await Promise.all([params, searchParams]);
+export default function ExercisePage({ params, searchParams }: PageProps<"/ejercicios/[id]">) {
+  return (
+    <Suspense fallback={<ExerciseLoading />}>
+      <ExerciseContent params={params} searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function ExerciseContent({ params, searchParams }: Pick<PageProps<"/ejercicios/[id]">, "params" | "searchParams">) {
+  const [user, { id }, sp] = await Promise.all([requireUser(), params, searchParams]);
   const ex = await getExercise(decodeURIComponent(id));
   if (!ex || (ex.ownerId !== null && ex.ownerId !== user.id)) notFound();
   const history = await exerciseHistory(user.id, ex.id);

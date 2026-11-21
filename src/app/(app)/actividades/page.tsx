@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { io } from "next/cache";
 import { ActivityForm } from "@/components/ActivityForm";
 import { DeleteActivityButton } from "@/components/DeleteActivityButton";
 import { Card, PageHeader } from "@/components/ui";
@@ -9,15 +11,24 @@ import { INTENSITIES, activityEmoji, activityLabel, type Intensity } from "@/lib
 
 export const metadata: Metadata = { title: "Actividades" };
 
+async function ActivityFormCard({ bodyWeightKg, heightCm }: { bodyWeightKg: number; heightCm: number | null }) {
+  await io();
+  return (
+    <Card className="p-4">
+      <ActivityForm today={todayISO()} bodyWeightKg={bodyWeightKg} heightCm={heightCm} />
+    </Card>
+  );
+}
+
 export default async function ActivitiesPage() {
   const user = await requireUser();
   const list = await listActivities(user.id, 50);
   return (
     <div className="space-y-4">
       <PageHeader title="Actividades" subtitle="Gimnasio, pádel, caminar, elíptica… todo suma a tus kcal gastadas." />
-      <Card className="p-4">
-        <ActivityForm today={todayISO()} bodyWeightKg={user.bodyWeightKg} heightCm={user.heightCm} />
-      </Card>
+      <Suspense fallback={<Card className="h-[196px] animate-pulse bg-card-2 p-4" />}>
+        <ActivityFormCard bodyWeightKg={user.bodyWeightKg} heightCm={user.heightCm} />
+      </Suspense>
       <ul className="space-y-2">
         {list.map((a) => (
           <li key={a.id}>

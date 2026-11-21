@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { BackLink } from "@/components/BackLink";
 import { SessionRunner } from "@/components/SessionRunner";
@@ -6,12 +7,20 @@ import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getSessionDetail, lastSetsByExercise, listRoutineExerciseIds } from "@/lib/data";
 import { safeBackHref, safeBackLabel } from "@/lib/navigation";
+import SessionLoading from "./loading";
 
 export const metadata: Metadata = { title: "Entrenamiento" };
 
-export default async function SessionPage({ params, searchParams }: PageProps<"/sesion/[id]">) {
-  const user = await requireUser();
-  const [{ id }, sp] = await Promise.all([params, searchParams]);
+export default function SessionPage({ params, searchParams }: PageProps<"/sesion/[id]">) {
+  return (
+    <Suspense fallback={<SessionLoading />}>
+      <SessionContent params={params} searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function SessionContent({ params, searchParams }: Pick<PageProps<"/sesion/[id]">, "params" | "searchParams">) {
+  const [user, { id }, sp] = await Promise.all([requireUser(), params, searchParams]);
   const sessionId = Number(id);
   if (!Number.isInteger(sessionId)) notFound();
   const session = await getSessionDetail(user.id, sessionId);

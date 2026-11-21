@@ -518,14 +518,12 @@ export async function startWorkout(routineId: number | null, date?: string) {
   }
   updateTag(cacheTags.openSession(user.id));
   updateTag(cacheTags.calendar(user.id));
-  updateTag(cacheTags.plan(user.id));
-  updateTag(cacheTags.session(session.id));
   redirect(`/sesion/${session.id}`);
 }
 
 export async function addExercisesToSession(sessionId: number, exerciseIds: string[]) {
   const user = await requireUser();
-  await ownSession(user.id, sessionId);
+  const session = await ownSession(user.id, sessionId);
   const ids = exerciseIds.slice(0, 30);
   if (!ids.length) return;
   const db = await getDb();
@@ -544,8 +542,8 @@ export async function addExercisesToSession(sessionId: number, exerciseIds: stri
     return sets.map((x, k) => ({ sessionExerciseId: inserted[idx].id, position: k, reps: x.reps, weightKg: x.weightKg }));
   });
   if (setRows.length) await db.insert(s.sessionSets).values(setRows);
-  updateTag(cacheTags.plan(user.id));
-  updateTag(cacheTags.calendar(user.id));
+  updateTag(cacheTags.session(sessionId));
+  if (session.endedAt !== null) updateTag(cacheTags.analytics(user.id));
   refresh();
 }
 
@@ -555,9 +553,9 @@ export async function removeSessionExercise(seId: number) {
   if (owned) {
     const db = await getDb();
     await db.delete(s.sessionExercises).where(eq(s.sessionExercises.id, seId));
+    updateTag(cacheTags.session(owned.sessionId));
+    if (owned.endedAt !== null) updateTag(cacheTags.analytics(user.id));
   }
-  updateTag(cacheTags.plan(user.id));
-  updateTag(cacheTags.calendar(user.id));
   refresh();
 }
 
@@ -570,8 +568,7 @@ export async function saveSessionSets(seId: number, sets: SetInput[]): Promise<{
   const rows = cleanSets(sets).map((x) => ({ ...x, sessionExerciseId: seId }));
   if (rows.length) await db.insert(s.sessionSets).values(rows);
   updateTag(cacheTags.session(owned.sessionId));
-  updateTag(cacheTags.openSession(user.id));
-  updateTag(cacheTags.analytics(user.id));
+  if (owned.endedAt !== null) updateTag(cacheTags.analytics(user.id));
   return { ok: true };
 }
 
@@ -603,6 +600,7 @@ export async function finishWorkout(
     .set({ endedAt: session.endedAt ?? new Date(), durationMin, intensity, kcal, notes: opts.notes?.slice(0, 2000) || null })
     .where(eq(s.workoutSessions.id, sessionId));
 
+  let addedCardio = false;
   if (!wasFinished && opts.cardio && ACTIVITY_TYPES[opts.cardio.type] && opts.cardio.type !== "gym") {
     const cardioDuration = clamp(Math.round(opts.cardio.durationMin) || 0, 1, 600);
     const cardioIntensity: Intensity = isIntensity(opts.cardio.intensity) ? opts.cardio.intensity : "moderate";
@@ -616,14 +614,19 @@ export async function finishWorkout(
       kcal: cardioKcal,
       notes: opts.cardio.notes?.trim().slice(0, 500) || null,
     });
+    addedCardio = true;
   }
 
+  let updatedRoutineId: number | null = null;
+  let createdRoutine = false;
   if (opts.routineAction === "update" && session.routineId) {
     // Reemplaza la rutina entera (ejercicios + sets) con lo de esta sesión.
     await copySessionExercisesToRoutine(db, sessionId, session.routineId, true);
+    updatedRoutineId = session.routineId;
   } else if (opts.routineAction === "new" && opts.newRoutineName?.trim()) {
     // Crea una rutina nueva a partir de los ejercicios de esta sesión.
     await createRoutineCopyFromSession(db, user.id, session, opts.newRoutineName);
+    createdRoutine = true;
   } else if (opts.updateRoutine && session.routineId) {
     // Comportamiento previo: solo actualiza pesos/reps de los ejercicios que ya estaban en la rutina.
     const [detail, res] = await Promise.all([
@@ -657,6 +660,7 @@ export async function finishWorkout(
         sets.map((x, i) => ({ routineExerciseId, position: i, reps: x.reps, weightKg: x.weightKg, type: x.type })),
       );
       if (newSets.length) await db.insert(s.routineSets).values(newSets);
+      updatedRoutineId = session.routineId;
     }
   }
   updateTag(cacheTags.session(sessionId));
@@ -664,10 +668,14 @@ export async function finishWorkout(
   updateTag(cacheTags.calendar(user.id));
   updateTag(cacheTags.analytics(user.id));
   updateTag(cacheTags.energy(user.id));
-  updateTag(cacheTags.plan(user.id));
-  if (opts.updateRoutine && session.routineId) {
+  if (addedCardio) updateTag(cacheTags.activities(user.id));
+  if (updatedRoutineId !== null) {
+    updateTag(cacheTags.routine(updatedRoutineId));
     updateTag(cacheTags.routines(user.id));
-    updateTag(cacheTags.routine(session.routineId));
+  }
+  if (createdRoutine) {
+    updateTag(cacheTags.routines(user.id));
+    updateTag(cacheTags.routineOptions(user.id));
   }
   refresh();
   return { ok: true };
@@ -679,8 +687,8 @@ export async function updateRoutineFromSession(sessionId: number): Promise<void>
   if (!session.routineId) throw new Error("La sesión no tiene rutina asociada");
   const db = await getDb();
   await copySessionExercisesToRoutine(db, sessionId, session.routineId, true);
-  updateTag(cacheTags.plan(user.id));
-  updateTag(cacheTags.calendar(user.id));
+  updateTag(cacheTags.routine(session.routineId));
+  updateTag(cacheTags.routines(user.id));
   refresh();
 }
 
@@ -690,8 +698,8 @@ export async function createRoutineFromSession(sessionId: number, name: string):
   if (!name.trim()) throw new Error("Pon un nombre a la rutina");
   const db = await getDb();
   await createRoutineCopyFromSession(db, user.id, session, name);
-  updateTag(cacheTags.plan(user.id));
-  updateTag(cacheTags.calendar(user.id));
+  updateTag(cacheTags.routines(user.id));
+  updateTag(cacheTags.routineOptions(user.id));
   refresh();
 }
 
@@ -704,7 +712,6 @@ export async function deleteWorkout(sessionId: number, opts?: { redirectToHome?:
   updateTag(cacheTags.calendar(user.id));
   updateTag(cacheTags.analytics(user.id));
   updateTag(cacheTags.energy(user.id));
-  updateTag(cacheTags.plan(user.id));
   if (opts?.redirectToHome === false) {
     refresh();
     return;
@@ -754,7 +761,6 @@ export async function logActivity(_: FormState, form: FormData): Promise<FormSta
   updateTag(cacheTags.activities(user.id));
   updateTag(cacheTags.calendar(user.id));
   updateTag(cacheTags.energy(user.id));
-  updateTag(cacheTags.plan(user.id));
   refresh();
   return { ok: true };
 }
@@ -763,8 +769,9 @@ export async function deleteActivity(id: number) {
   const user = await requireUser();
   const db = await getDb();
   await db.delete(s.activities).where(and(eq(s.activities.id, id), eq(s.activities.userId, user.id)));
-  updateTag(cacheTags.plan(user.id));
+  updateTag(cacheTags.activities(user.id));
   updateTag(cacheTags.calendar(user.id));
+  updateTag(cacheTags.energy(user.id));
   refresh();
 }
 
@@ -787,7 +794,6 @@ export async function logIntake(_: FormState, form: FormData): Promise<FormState
       .values({ userId: user.id, date, kcal })
       .onConflictDoUpdate({ target: [s.intakeLogs.userId, s.intakeLogs.date], set: { kcal } });
   updateTag(cacheTags.energy(user.id));
-  updateTag(cacheTags.calendar(user.id));
   refresh();
   return { ok: true };
 }
@@ -807,6 +813,7 @@ export async function createCustomExercise(_: FormState, form: FormData): Promis
   const id = `u${user.id}_${name.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "_").slice(0, 40)}_${Date.now().toString(36)}`;
   await db.insert(s.exercises).values({ id, name, primaryMuscle, equipment, ownerId: user.id, images: image ? [image] : [] });
   updateTag(cacheTags.exercises(user.id));
+  updateTag(cacheTags.exercise(id));
   redirect(`/ejercicios/${encodeURIComponent(id)}`);
 }
 
@@ -823,6 +830,7 @@ export async function createApiToken(_: unknown, form: FormData): Promise<{ erro
   if (n >= 10) return { error: "Máximo 10 tokens. Revoca alguno." };
   const { token, hash } = generateToken();
   await db.insert(s.apiTokens).values({ userId: user.id, name, scope, tokenHash: hash });
+  updateTag(cacheTags.tokens(user.id));
   refresh();
   return { token };
 }
@@ -831,5 +839,6 @@ export async function revokeApiToken(id: number) {
   const user = await requireUser();
   const db = await getDb();
   await db.delete(s.apiTokens).where(and(eq(s.apiTokens.id, id), eq(s.apiTokens.userId, user.id)));
+  updateTag(cacheTags.tokens(user.id));
   refresh();
 }

@@ -83,6 +83,7 @@ export async function createExercise(userId: number, input: unknown) {
   const id = `u${userId}_${name.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "_").slice(0, 40)}_${Date.now().toString(36)}`;
   await db.insert(s.exercises).values({ id, name, primaryMuscle, equipment, ownerId: userId, images: image ? [image] : [], instructions });
   revalidateTag(cacheTags.exercises(userId), { expire: 0 });
+  revalidateTag(cacheTags.exercise(id), { expire: 0 });
   return { id, name, primaryMuscle, equipment };
 }
 
@@ -181,10 +182,11 @@ export async function updateRoutineApi(userId: number, routineId: number, input:
     await writeExercises(db, routineId, items);
   }
   revalidateTag(cacheTags.routines(userId), { expire: 0 });
-  revalidateTag(cacheTags.routineOptions(userId), { expire: 0 });
+  if (patch.name !== undefined || patch.color !== undefined) {
+    revalidateTag(cacheTags.routineOptions(userId), { expire: 0 });
+    revalidateTag(cacheTags.calendar(userId), { expire: 0 });
+  }
   revalidateTag(cacheTags.routine(routineId), { expire: 0 });
-  revalidateTag(cacheTags.plan(userId), { expire: 0 });
-  revalidateTag(cacheTags.calendar(userId), { expire: 0 });
   return routineView(userId, routineId, baseUrl);
 }
 

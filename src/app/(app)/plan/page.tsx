@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { io } from "next/cache";
 import Link from "next/link";
 import { PlanEditor } from "@/components/PlanEditor";
 import { PageHeader } from "@/components/ui";
@@ -9,10 +11,28 @@ import { weekIndexFor } from "@/lib/schedule";
 
 export const metadata: Metadata = { title: "Plan semanal" };
 
+async function PlanEditorSection({
+  plan,
+  routines,
+}: {
+  plan: Awaited<ReturnType<typeof getActivePlan>>;
+  routines: Awaited<ReturnType<typeof listRoutineOptions>>;
+}) {
+  await io();
+  const today = todayISO();
+  return (
+    <PlanEditor
+      plan={plan}
+      routines={routines}
+      today={today}
+      currentWeek={plan ? weekIndexFor(today, plan) : null}
+    />
+  );
+}
+
 export default async function PlanPage() {
   const user = await requireUser();
   const [plan, routines] = await Promise.all([getActivePlan(user.id), listRoutineOptions(user.id)]);
-  const today = todayISO();
   return (
     <div>
       <PageHeader
@@ -24,12 +44,9 @@ export default async function PlanPage() {
           </>
         }
       />
-      <PlanEditor
-        plan={plan}
-        routines={routines}
-        today={today}
-        currentWeek={plan ? weekIndexFor(today, plan) : null}
-      />
+      <Suspense fallback={<div className="h-96 animate-pulse rounded-2xl bg-card-2" />}>
+        <PlanEditorSection plan={plan} routines={routines} />
+      </Suspense>
     </div>
   );
 }

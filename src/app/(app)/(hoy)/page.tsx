@@ -1,5 +1,8 @@
+import { Suspense } from "react";
+import { io } from "next/cache";
 import Link from "next/link";
 import { startWorkout } from "@/app/actions";
+import TodayLoading from "./loading";
 import { ActivityForm } from "@/components/ActivityForm";
 import { AddActivityToggle } from "@/components/AddActivityToggle";
 import { dayEmoji, dayTitle } from "@/components/DayBadge";
@@ -105,8 +108,25 @@ function heroTitleSize(title: string) {
   return "text-[22px]";
 }
 
-export default async function TodayPage() {
+export default function TodayPage() {
+  return (
+    <div className="relative space-y-5 overflow-x-clip">
+      {/* Resplandor tras el anillo */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-[250px] -z-10 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{ background: "radial-gradient(circle, rgba(47,85,244,0.12) 0%, rgba(47,85,244,0.06) 40%, rgba(47,85,244,0) 65%)" }}
+      />
+      <Suspense fallback={<TodayLoading />}>
+        <TodayContent />
+      </Suspense>
+    </div>
+  );
+}
+
+async function TodayContent() {
   const user = await requireUser();
+  await io();
   const today = todayISO();
   const [calendar, open, routineOptions] = await Promise.all([
     getCalendar(user.id, startOfWeek(today), 8),
@@ -144,14 +164,7 @@ export default async function TodayPage() {
   const canStartFree = !open && day.planned.kind !== "workout" && !done;
 
   return (
-    <div className="relative space-y-5 overflow-x-clip">
-      {/* Resplandor tras el anillo */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-[250px] -z-10 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(47,85,244,0.12) 0%, rgba(47,85,244,0.06) 40%, rgba(47,85,244,0) 65%)" }}
-      />
-
+    <>
       <header className="flex items-end justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <p className="text-sm text-muted">
@@ -369,6 +382,6 @@ export default async function TodayPage() {
           <LinkButton href="/rutinas" size="sm">Crear rutina</LinkButton>
         </Card>
       )}
-    </div>
+    </>
   );
 }

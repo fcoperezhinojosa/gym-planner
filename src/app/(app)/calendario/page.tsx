@@ -1,15 +1,26 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { io } from "next/cache";
 import { CalendarView } from "@/components/CalendarView";
 import { requireUser } from "@/lib/auth";
 import { getCalendar, listRoutineOptions } from "@/lib/data";
 import { addDays, daysInMonth, isValidISODate, isoWeekday, startOfMonth, todayISO } from "@/lib/dates";
 import { summarizeDays } from "@/lib/week";
+import CalendarLoading from "./loading";
 
 export const metadata: Metadata = { title: "Calendario" };
 
-export default async function CalendarPage({ searchParams }: PageProps<"/calendario">) {
-  const user = await requireUser();
-  const sp = await searchParams;
+export default function CalendarPage({ searchParams }: PageProps<"/calendario">) {
+  return (
+    <Suspense fallback={<CalendarLoading />}>
+      <CalendarContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function CalendarContent({ searchParams }: Pick<PageProps<"/calendario">, "searchParams">) {
+  const [user, sp] = await Promise.all([requireUser(), searchParams]);
+  await io();
   const today = todayISO();
   const selected = isValidISODate(sp.d) ? sp.d : today;
   const month = isValidISODate(sp.m) ? startOfMonth(sp.m) : startOfMonth(selected);

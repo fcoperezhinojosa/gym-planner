@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { io } from "next/cache";
 import Link from "next/link";
 import { WeeklyBarChart, WeeklyKcalChart } from "@/components/Charts";
 import { EnergyBalance } from "@/components/EnergyBalance";
@@ -11,13 +13,26 @@ import { MUSCLE_GROUPS, muscleGroup, type MuscleGroup } from "@/lib/labels";
 import { withBackParams } from "@/lib/navigation";
 import { epley1RM, weekStreak } from "@/lib/stats";
 import { summarizeDays } from "@/lib/week";
+import AnalyticsLoading from "./loading";
 
 export const metadata: Metadata = { title: "Analítica" };
 
 const WEEKS = 12;
 
-export default async function AnalyticsPage() {
+export default function AnalyticsPage() {
+  return (
+    <div className="space-y-5">
+      <PageHeader title="Analítica" subtitle={`Últimas ${WEEKS} semanas`} />
+      <Suspense fallback={<AnalyticsLoading />}>
+        <AnalyticsContent />
+      </Suspense>
+    </div>
+  );
+}
+
+async function AnalyticsContent() {
   const user = await requireUser();
+  await io();
   const today = todayISO();
   const thisWeek = startOfWeek(today);
   const from = addDays(thisWeek, -7 * (WEEKS - 1));
@@ -79,9 +94,7 @@ export default async function AnalyticsPage() {
   const topPrs = [...prs.entries()].sort((a, b) => b[1].oneRm - a[1].oneRm).slice(0, 8);
 
   return (
-    <div className="space-y-5">
-      <PageHeader title="Analítica" subtitle={`Últimas ${WEEKS} semanas`} />
-
+    <>
       <section className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat label="Esta semana" value={`${cur.done}/${cur.planned}`} hint="días entrenados / plan" />
         <Stat label="Kcal esta semana" value={cur.kcal.toLocaleString("es-ES")} hint={`media ${avg((w) => w.kcal).toLocaleString("es-ES")}`} />
@@ -174,6 +187,6 @@ export default async function AnalyticsPage() {
           </tbody>
         </table>
       </Card>
-    </div>
+    </>
   );
 }
