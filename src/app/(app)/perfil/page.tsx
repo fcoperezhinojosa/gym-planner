@@ -11,6 +11,7 @@ import { ProfileForm } from "@/components/ProfileForm";
 import { Button, Card, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { listApiTokens } from "@/lib/data";
+import { getVapidPublicKey } from "@/lib/push";
 
 export const metadata: Metadata = { title: "Perfil" };
 
@@ -67,6 +68,7 @@ export default async function ProfilePage() {
           reminderEnabled={user.reminderEnabled}
           reminderHour={user.reminderHour}
           reminderTimeZone={user.reminderTimeZone}
+          vapidPublicKey={getVapidPublicKey()}
         />
       </Card>
       <Card className="p-4">

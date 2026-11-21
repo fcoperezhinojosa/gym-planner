@@ -91,7 +91,16 @@ export async function sendPushToUser(
         } else {
           failed += 1;
           const msg = err instanceof Error ? err.message : String(err);
-          lastError = statusCode ? `HTTP ${statusCode}: ${msg}` : msg;
+          const errBody =
+            typeof err === "object" &&
+            err !== null &&
+            "body" in err &&
+            typeof (err as { body?: unknown }).body === "string"
+              ? (err as { body: string }).body.trim().slice(0, 200)
+              : "";
+          lastError = statusCode
+            ? `HTTP ${statusCode}${errBody ? `: ${errBody}` : `: ${msg}`}`
+            : msg;
           console.error(`[push] Error enviando notificación a sub ${sub.id}:`, err);
         }
       }

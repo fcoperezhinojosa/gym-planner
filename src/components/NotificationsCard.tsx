@@ -27,11 +27,14 @@ export function NotificationsCard({
   reminderEnabled,
   reminderHour,
   reminderTimeZone,
+  vapidPublicKey,
 }: {
   reminderEnabled: boolean;
   reminderHour: number;
   reminderTimeZone: string;
+  vapidPublicKey?: string;
 }) {
+  const effectiveVapidKey = (vapidPublicKey ?? VAPID_PUBLIC_KEY).trim().replace(/^['"]|['"]$/g, "");
   const [status, setStatus] = useState<PushStatus>("checking");
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -55,7 +58,7 @@ export function NotificationsCard({
       } catch {}
 
       let nextStatus: PushStatus = "unsubscribed";
-      if (!VAPID_PUBLIC_KEY) {
+      if (!effectiveVapidKey) {
         nextStatus = "unconfigured";
       } else if (
         typeof window === "undefined" ||
@@ -85,7 +88,7 @@ export function NotificationsCard({
     return () => {
       active = false;
     };
-  }, [reminderTimeZone]);
+  }, [reminderTimeZone, effectiveVapidKey]);
 
   async function enablePush() {
     setBusy(true);
@@ -107,7 +110,7 @@ export function NotificationsCard({
       if (!sub) {
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+          applicationServerKey: urlBase64ToUint8Array(effectiveVapidKey),
         });
       }
 
