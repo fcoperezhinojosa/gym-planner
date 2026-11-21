@@ -632,54 +632,62 @@ export function RestTimerCard({
       <div
         role="timer"
         aria-label={`Descanso: quedan ${formatClock(restLeft)}`}
-        className="fixed inset-x-0 bottom-20 z-40 mx-auto flex w-[min(92vw,26rem)] items-center gap-3 rounded-3xl bg-navy py-3 pl-3.5 pr-3 text-white shadow-[0_16px_40px_rgba(16,26,61,0.30)] md:bottom-6"
+        className="fixed inset-x-0 bottom-20 z-40 mx-auto w-[min(94vw,26rem)] overflow-hidden rounded-3xl border border-periwinkle/20 bg-navy text-white shadow-[0_16px_40px_rgba(16,26,61,0.35)] md:bottom-6"
       >
-        <button
-          type="button"
-          onClick={onToggleExpanded}
-          aria-label="Ampliar tarjeta motivacional de descanso"
-          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
-        >
-          <svg aria-hidden="true" width="52" height="52" viewBox="0 0 52 52" fill="none" className="shrink-0">
-            <circle cx="26" cy="26" r="22" stroke="rgba(255,255,255,0.14)" strokeWidth="5" />
-            <circle
-              cx="26"
-              cy="26"
-              r="22"
-              stroke={finalMode ? "#4ade80" : "var(--periwinkle)"}
-              strokeWidth="5"
-              strokeLinecap="round"
-              strokeDasharray={`${ratio * 138.2} 138.2`}
-              transform="rotate(-90 26 26)"
-              className="transition-[stroke-dasharray] duration-1000 ease-linear"
-            />
-          </svg>
-          <div className="min-w-0 flex-1">
-            <p className={cx("font-display text-2xl font-bold leading-tight tabular", finalMode ? "text-[#4ade80]" : "text-white")}>
-              {formatClock(restLeft)}
-            </p>
-            <p className="flex items-center gap-1 truncate text-xs text-periwinkle">
-              <span className="truncate">{paused ? "Descanso (en pausa)" : `${setLabel} · ${spec.badge}`}</span>
-              <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-80">
-                <path d="M18 15l-6-6-6 6" />
-              </svg>
-            </p>
-          </div>
-        </button>
-        <button
-          type="button"
-          className="h-11 shrink-0 cursor-pointer rounded-full border border-white/20 px-3.5 text-sm font-semibold transition hover:bg-white/10 active:scale-[.98]"
-          onClick={onAdd15}
-        >
-          +15 s
-        </button>
-        <button
-          type="button"
-          className="h-11 shrink-0 cursor-pointer rounded-full bg-white px-4 text-sm font-bold text-navy transition hover:bg-accent-soft active:scale-[.98]"
-          onClick={onSkip}
-        >
-          Saltar
-        </button>
+        <div className="flex items-center gap-2 py-2.5 pl-2.5 pr-2.5">
+          <button
+            type="button"
+            onClick={onToggleExpanded}
+            aria-label="Abrir tarjeta de descanso"
+            className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-2xl p-1 text-left transition hover:bg-white/8 active:scale-[.99]"
+          >
+            <RestEmblem id={moment.animationId} finalMode={finalMode} paused={paused} className="h-11 w-11 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className={cx("font-display text-2xl font-bold leading-tight tabular", finalMode ? "text-[#4ade80]" : "text-white")}>
+                {formatClock(restLeft)}
+              </p>
+              <p className="truncate text-xs text-periwinkle">
+                {paused ? "En pausa" : finalMode ? "¡Últimos segundos!" : setLabel}
+              </p>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={onToggleExpanded}
+            aria-label="Ampliar descanso"
+            title="Ampliar"
+            className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 active:scale-[.96]"
+          >
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 15l-6-6-6 6" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="h-10 shrink-0 cursor-pointer rounded-full border border-white/20 px-3 text-sm font-semibold transition hover:bg-white/10 active:scale-[.98]"
+            onClick={onAdd15}
+          >
+            +15 s
+          </button>
+          <button
+            type="button"
+            className="h-10 shrink-0 cursor-pointer rounded-full bg-white px-3.5 text-sm font-bold text-navy transition hover:bg-accent-soft active:scale-[.98]"
+            onClick={onSkip}
+          >
+            Saltar
+          </button>
+        </div>
+        <div className="h-1 w-full bg-white/10">
+          <div
+            className="h-full transition-[width] duration-1000 ease-linear"
+            style={{
+              width: `${ratio * 100}%`,
+              background: finalMode
+                ? "linear-gradient(90deg, #2f55f4, #4ade80)"
+                : "linear-gradient(90deg, #2f55f4, #a9baff)",
+            }}
+          />
+        </div>
       </div>
     );
   }
@@ -710,9 +718,9 @@ export function RestTimerCard({
           onClick={onToggleExpanded}
           aria-label="Minimizar descanso"
           title="Minimizar"
-          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/15 bg-white/5 text-periwinkle transition hover:bg-white/15 hover:text-white"
+          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 active:scale-[.96]"
         >
-          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M6 9l6 6 6-6" />
           </svg>
         </button>
