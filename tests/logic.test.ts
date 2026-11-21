@@ -24,6 +24,8 @@ import {
   pickNextRestMoment,
   shouldExpandRest,
 } from "../src/lib/rest-motivation";
+import { calendarCellEmojis, doneDayEmojis, doneDayTitle } from "../src/lib/week";
+import type { CalendarDay } from "../src/lib/data";
 
 describe("propagate", () => {
   it("3x12 → cambiar una a 16 cambia todas", () => {
@@ -313,5 +315,122 @@ describe("animaciones motivacionales de descanso", () => {
     expect(shouldExpandRest(59)).toBe(false);
     expect(shouldExpandRest(60)).toBe(true);
     expect(shouldExpandRest(90)).toBe(true);
+  });
+});
+
+describe("emojis y títulos de celdas del calendario", () => {
+  const today = "2026-11-21";
+  function makeDay(overrides: Partial<CalendarDay> & { date: string }): CalendarDay {
+    return {
+      planned: {
+        kind: "rest",
+        routineId: null,
+        activityType: null,
+        extraActivities: [],
+        label: null,
+        source: "none",
+        weekIndex: null,
+        routineName: null,
+        routineColor: null,
+      },
+      sessions: [],
+      activities: [],
+      ...overrides,
+    };
+  }
+
+  it("muestra 🚶 si caminó sin ir al gimnasio, tanto en descanso como en día de entreno", () => {
+    const restWalk = makeDay({
+      date: "2026-11-11",
+      activities: [{ id: 1, type: "walking", durationMin: 45, kcal: 200 }],
+    });
+    expect(calendarCellEmojis(restWalk, today)).toEqual(["🚶"]);
+    expect(doneDayTitle(restWalk)).toBe("Caminar");
+
+    const workoutWalkOnly = makeDay({
+      date: "2026-11-12",
+      planned: {
+        kind: "workout",
+        routineId: 1,
+        activityType: null,
+        extraActivities: [],
+        label: null,
+        source: "plan",
+        weekIndex: 0,
+        routineName: "Pierna",
+        routineColor: "#2f55f4",
+      },
+      activities: [{ id: 2, type: "walking", durationMin: 60, kcal: 260 }],
+    });
+    expect(calendarCellEmojis(workoutWalkOnly, today)).toEqual(["🚶"]);
+    expect(doneDayTitle(workoutWalkOnly)).toBe("Caminar");
+  });
+
+  it("muestra 😴 en días pasados y hoy cuando no se hizo nada en descanso", () => {
+    const pastRest = makeDay({ date: "2026-11-14" });
+    expect(calendarCellEmojis(pastRest, today)).toEqual(["😴"]);
+
+    const todayRest = makeDay({ date: today });
+    expect(calendarCellEmojis(todayRest, today)).toEqual(["😴"]);
+  });
+
+  it("no muestra 😴 en días futuros sin plan, pero sí si hay descanso marcado explícitamente", () => {
+    const futureEmpty = makeDay({ date: "2026-11-25" });
+    expect(calendarCellEmojis(futureEmpty, today)).toEqual([]);
+
+    const futurePlannedRest = makeDay({
+      date: "2026-11-26",
+      planned: { ...makeDay({ date: "2026-11-26" }).planned, source: "plan" },
+    });
+    expect(calendarCellEmojis(futurePlannedRest, today)).toEqual([]);
+
+    const futureOverrideRest = makeDay({
+      date: "2026-11-27",
+      planned: { ...makeDay({ date: "2026-11-27" }).planned, source: "override" },
+    });
+    expect(calendarCellEmojis(futureOverrideRest, today)).toEqual(["😴"]);
+  });
+
+  it("muestra lo planificado en días futuros o pasados no hechos con entreno planificado", () => {
+    const futureWorkout = makeDay({
+      date: "2026-11-23",
+      planned: {
+        kind: "workout",
+        routineId: 1,
+        activityType: null,
+        extraActivities: [],
+        label: null,
+        source: "override",
+        weekIndex: null,
+        routineName: "Empuje",
+        routineColor: "#10b981",
+      },
+    });
+    expect(calendarCellEmojis(futureWorkout, today)).toEqual(["🏋️"]);
+
+    const missedWorkout = makeDay({ ...futureWorkout, date: "2026-11-17" });
+    expect(calendarCellEmojis(missedWorkout, today)).toEqual(["🏋️"]);
+  });
+
+  it("combina y deduplica gimnasio + actividades realizadas", () => {
+    const gymAndWalk = makeDay({
+      date: "2026-11-09",
+      sessions: [{ id: 1, name: "Empuje", kcal: 300, durationMin: 50, finished: true }],
+      activities: [
+        { id: 1, type: "walking", durationMin: 30, kcal: 140 },
+        { id: 2, type: "walking", durationMin: 20, kcal: 90 },
+      ],
+    });
+    expect(doneDayEmojis(gymAndWalk)).toEqual(["🏋️", "🚶"]);
+    expect(calendarCellEmojis(gymAndWalk, today)).toEqual(["🏋️", "🚶"]);
+    expect(doneDayTitle(gymAndWalk)).toBe("Empuje + Caminar");
+
+    // Una sesión sin terminar no cuenta como realizada
+    const openOnly = makeDay({
+      date: today,
+      sessions: [{ id: 2, name: "Libre", kcal: null, durationMin: null, finished: false }],
+    });
+    expect(doneDayEmojis(openOnly)).toEqual([]);
+    expect(calendarCellEmojis(openOnly, today)).toEqual(["😴"]);
   });
 });

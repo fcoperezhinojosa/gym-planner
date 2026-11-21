@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { startWorkout } from "@/app/actions";
 import { ActivityForm } from "@/components/ActivityForm";
 import { CloseAddActivityContext } from "@/components/AddActivityContext";
-import { dayEmoji, dayEmojis, dayTitle, slotColor } from "@/components/DayBadge";
+import { dayEmoji, dayTitle, slotColor } from "@/components/DayBadge";
 import { DayOverride } from "@/components/DayOverride";
 import { DeleteActivityButton } from "@/components/DeleteActivityButton";
 import { DeleteWorkoutButton } from "@/components/DeleteWorkoutButton";
@@ -18,7 +18,7 @@ import { activityEmoji, activityLabel } from "@/lib/kcal";
 import { MONTHS, WEEKDAYS, WEEKDAYS_SHORT } from "@/lib/labels";
 import { isRedirectError, withBackParams } from "@/lib/navigation";
 import { weekLetter } from "@/lib/schedule";
-import { dayDone } from "@/lib/week";
+import { calendarCellEmojis, dayDone, doneDayEmojis, doneDayTitle } from "@/lib/week";
 
 type NavKey = "prev" | "today" | "next";
 
@@ -71,6 +71,11 @@ export function CalendarView({
   const monthPending = pendingNav.prev || pendingNav.today || pendingNav.next;
   const [y, m] = month.split("-").map(Number);
   const sel = days.find((d) => d.date === selected) ?? days.find((d) => d.date === month) ?? days[0] ?? null;
+  const selDone = sel !== null && dayDone(sel);
+  const selEmoji = sel ? (selDone ? doneDayEmojis(sel).join("") : dayEmoji(sel.planned)) : "";
+  const selTitle = sel ? (selDone ? doneDayTitle(sel) : dayTitle(sel.planned)) : "";
+  const selPlannedTitle = sel ? dayTitle(sel.planned) : "";
+  const showPlannedHint = sel !== null && selDone && sel.planned.kind !== "rest" && selPlannedTitle !== selTitle;
   const isCurrentMonth = month === startOfMonth(today);
   const showActivityForm = sel !== null && activityFormDate === sel.date;
 
@@ -145,13 +150,14 @@ export function CalendarView({
             const done = dayDone(d);
             const missed = !done && d.date < today && d.planned.kind !== "rest";
             const isSelected = sel?.date === d.date;
+            const emojis = calendarCellEmojis(d, today);
             return (
               <button
                 key={d.date}
                 type="button"
                 onClick={() => selectDay(d.date)}
                 aria-pressed={isSelected}
-                aria-label={`${d.date}: ${dayTitle(d.planned)}`}
+                aria-label={`${d.date}: ${done ? doneDayTitle(d) : dayTitle(d.planned)}`}
                 className={cx(
                   "relative flex aspect-square cursor-pointer flex-col items-center justify-center rounded-lg text-sm transition-colors",
                   out && "opacity-35",
@@ -159,7 +165,7 @@ export function CalendarView({
                 )}
               >
                 <span className={cx("text-xs tabular", d.date === today && "font-bold text-accent-text")}>{Number(d.date.slice(8))}</span>
-                <CellEmojis slot={d.planned} hidden={d.planned.kind === "rest" && !done} />
+                <CellEmojis emojis={emojis} />
                 <span
                   className="absolute bottom-1 h-1 w-4 rounded-full"
                   style={{
@@ -187,13 +193,14 @@ export function CalendarView({
       {sel && (
         <Card className={cx("space-y-3 p-4 transition-opacity", monthPending && "animate-pulse opacity-60")}>
           <div className="flex items-start gap-3">
-            <span className="text-3xl">{dayEmoji(sel.planned)}</span>
+            <span className="text-3xl">{selEmoji}</span>
             <div className="flex-1">
               <p className="text-xs text-muted">
                 {WEEKDAYS[isoWeekday(sel.date) - 1]} {Number(sel.date.slice(8))}/{Number(sel.date.slice(5, 7))}
                 {sel.planned.weekIndex !== null && sel.planned.source !== "none" && <> · Semana {weekLetter(sel.planned.weekIndex)}</>}
               </p>
-              <h2 className="text-lg font-bold">{dayTitle(sel.planned)}</h2>
+              <h2 className="text-lg font-bold">{selTitle}</h2>
+              {showPlannedHint && <p className="text-xs text-muted">Planificado: {selPlannedTitle}</p>}
               {sel.planned.label && <p className="text-sm text-muted">{sel.planned.label}</p>}
               {sel.planned.source === "override" && <Pill className="mt-1">Cambiado solo este día</Pill>}
             </div>
@@ -274,14 +281,13 @@ export function CalendarView({
 }
 
 /** Emojis de la celda: hasta 2 y "+N" si hay más, para que quepa en móvil. */
-function CellEmojis({ slot, hidden }: { slot: CalendarDay["planned"]; hidden: boolean }) {
-  if (hidden) return <span className="text-base leading-none" />;
-  const all = dayEmojis(slot);
-  const shown = all.slice(0, 2);
+function CellEmojis({ emojis }: { emojis: string[] }) {
+  if (emojis.length === 0) return <span className="text-base leading-none" />;
+  const shown = emojis.slice(0, 2);
   return (
-    <span className={cx("flex items-center leading-none", all.length > 1 ? "text-sm" : "text-base")}>
+    <span className={cx("flex items-center leading-none", emojis.length > 1 ? "text-sm" : "text-base")}>
       {shown.join("")}
-      {all.length > 2 && <span className="ml-0.5 text-[10px] font-semibold text-muted">+{all.length - 2}</span>}
+      {emojis.length > 2 && <span className="ml-0.5 text-[10px] font-semibold text-muted">+{emojis.length - 2}</span>}
     </span>
   );
 }
