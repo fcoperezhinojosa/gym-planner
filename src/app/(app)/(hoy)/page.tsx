@@ -162,7 +162,6 @@ async function TodayContent() {
   const activityForm = <ActivityForm today={today} bodyWeightKg={user.bodyWeightKg} heightCm={user.heightCm} defaultType={day.planned.activityType ?? "other"} />;
 
   const canStartRoutine = !open && day.planned.kind === "workout" && routine !== null;
-  const canStartFree = !open && day.planned.kind !== "workout" && !done;
 
   return (
     <>
@@ -278,16 +277,6 @@ async function TodayContent() {
               <form action={startWorkout.bind(null, routine.id, today)}>
                 <StartWorkoutButton className="flex h-16 w-full cursor-pointer items-center justify-between rounded-full bg-accent pl-6 pr-2.5 text-lg font-bold text-accent-fg transition hover:brightness-110 active:scale-[.99]">
                   <span className="truncate">Empezar {routine.name}</span>
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-accent">
-                    <PlayIcon />
-                  </span>
-                </StartWorkoutButton>
-              </form>
-            )}
-            {canStartFree && (
-              <form action={startWorkout.bind(null, null, today)}>
-                <StartWorkoutButton className="flex h-16 w-full cursor-pointer items-center justify-between rounded-full bg-accent pl-6 pr-2.5 text-lg font-bold text-accent-fg transition hover:brightness-110 active:scale-[.99]">
-                  Entrenar igualmente
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-accent">
                     <PlayIcon />
                   </span>
