@@ -10,7 +10,8 @@ import { DayOverride } from "@/components/DayOverride";
 import { DeleteActivityButton } from "@/components/DeleteActivityButton";
 import { DeleteWorkoutButton } from "@/components/DeleteWorkoutButton";
 import { StartWorkoutButton } from "@/components/StartWorkoutButton";
-import { Card, LinkButton, Pill, cx } from "@/components/ui";
+import { TodayPlanPanel, TodayPlanProvider, TodayPlanTrigger } from "@/components/TodayPlanOverride";
+import { Card, LinkButton, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getCalendar, getOpenSession, getRoutine, listRoutineOptions } from "@/lib/data";
 import { startOfWeek, todayISO } from "@/lib/dates";
@@ -252,9 +253,11 @@ async function TodayContent() {
           </div>
         </>
       ) : (
-        <>
+        <TodayPlanProvider date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions}>
           <DayRing segments={todoSegments} size={300} label={`Hoy toca: ${heroTitle}`}>
-            <span className="text-xs font-semibold tracking-[0.16em] text-periwinkle">HOY TOCA</span>
+            <span className="text-xs font-semibold tracking-[0.16em] text-periwinkle">
+              HOY TOCA{day.planned.source === "override" && " · SOLO HOY"}
+            </span>
             <span className={cx("font-display font-bold leading-none tracking-[-0.02em] text-white [overflow-wrap:anywhere]", heroTitleSize(heroTitle))}>
               {heroTitle}
             </span>
@@ -265,8 +268,10 @@ async function TodayContent() {
               </span>
             )}
             {day.planned.label && <span className="text-sm text-[#c5ceea]">{day.planned.label}</span>}
-            {day.planned.source === "override" && <Pill className="bg-white/15 text-[#e4e9ff]">Cambiado solo hoy</Pill>}
+            <TodayPlanTrigger />
           </DayRing>
+
+          <TodayPlanPanel />
 
           <div className="space-y-1">
             {canStartRoutine && routine && (
@@ -294,12 +299,11 @@ async function TodayContent() {
                 Rutina vacía. <Link className="font-semibold text-accent-text hover:underline" href={`/rutinas/${routine.id}`}>Añade ejercicios</Link>
               </p>
             )}
-            <div className="flex flex-wrap items-center justify-center gap-x-6 [&>button]:h-11 [&>button]:rounded-lg [&>button]:text-sm [&>button]:font-semibold [&>button]:text-muted">
-              <DayOverride date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions} dayLabel="hoy" />
+            <div className="flex flex-wrap items-center justify-center [&>button]:h-11 [&>button]:rounded-lg [&>button]:text-sm [&>button]:font-semibold [&>button]:text-muted">
               <AddActivityToggle className="text-muted">{activityForm}</AddActivityToggle>
             </div>
           </div>
-        </>
+        </TodayPlanProvider>
       )}
 
       {day.planned.source === "none" && day.planned.weekIndex === null && (

@@ -16,6 +16,63 @@ function withExtraActivity(slot: DaySlot): DaySlot {
   return { ...slot, extraActivities: [...slot.extraActivities, next] };
 }
 
+/** Panel compartido para editar o restablecer el plan de un día concreto. */
+export function DayOverridePanel({
+  date,
+  initial,
+  isOverride,
+  routines,
+  title,
+  hint,
+  onClose,
+}: {
+  date: string;
+  initial: DaySlot;
+  isOverride: boolean;
+  routines: RoutineOption[];
+  title: string;
+  hint: string;
+  onClose: () => void;
+}) {
+  const [pending, start] = useTransition();
+  return (
+    <ActionPanel title={title} hint={hint}>
+      <SlotEditor
+        initial={initial}
+        routines={routines}
+        pending={pending}
+        onCancel={onClose}
+        onReset={
+          isOverride
+            ? () =>
+                start(async () => {
+                  try {
+                    await setOverride(date, null);
+                    onClose();
+                    toast("Vuelto al plan original");
+                  } catch {
+                    toast("No se pudo restablecer el plan", "danger");
+                  }
+                })
+            : undefined
+        }
+        resetLabel="Volver al plan"
+        onSave={(slot) =>
+          start(async () => {
+            try {
+              await setOverride(date, slot);
+              onClose();
+              toast("Cambios del día guardados");
+            } catch {
+              toast("No se pudieron guardar los cambios", "danger");
+            }
+          })
+        }
+      />
+    </ActionPanel>
+  );
+}
+
 /** Cambiar lo que toca solo un día concreto (excepción del calendario). */
 export function DayOverride({
   date,
@@ -35,7 +92,6 @@ export function DayOverride({
   dayLabel?: string;
 }) {
   const [mode, setMode] = useState<"closed" | "edit" | "add">("closed");
-  const [pending, start] = useTransition();
   const canAdd = showAddActivity && (current.extraActivities?.length ?? 0) < MAX_EXTRA_ACTIVITIES;
   if (mode === "closed")
     return (
@@ -51,42 +107,14 @@ export function DayOverride({
       </>
     );
   return (
-    <ActionPanel
+    <DayOverridePanel
+      date={date}
+      initial={mode === "add" ? withExtraActivity(current) : current}
+      isOverride={isOverride}
+      routines={routines}
       title={mode === "add" ? "Planificar otra actividad" : `Cambiar el plan de ${dayLabel}`}
       hint={`Solo afecta a ${dayLabel}; el resto de la semana no cambia.`}
-    >
-      <SlotEditor
-        initial={mode === "add" ? withExtraActivity(current) : current}
-        routines={routines}
-        pending={pending}
-        onCancel={() => setMode("closed")}
-        onReset={
-          isOverride
-            ? () =>
-                start(async () => {
-                  try {
-                    await setOverride(date, null);
-                    setMode("closed");
-                    toast("Vuelto al plan original");
-                  } catch {
-                    toast("No se pudo restablecer el plan", "danger");
-                  }
-                })
-            : undefined
-        }
-        resetLabel="Volver al plan"
-        onSave={(slot) =>
-          start(async () => {
-            try {
-              await setOverride(date, slot);
-              setMode("closed");
-              toast("Cambios del día guardados");
-            } catch {
-              toast("No se pudieron guardar los cambios", "danger");
-            }
-          })
-        }
-      />
-    </ActionPanel>
+      onClose={() => setMode("closed")}
+    />
   );
 }
