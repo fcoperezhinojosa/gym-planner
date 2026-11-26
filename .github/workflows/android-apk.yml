@@ -1,0 +1,112 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/android-apk.yml"
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: "URL de producción de Gym Planner (dejar vacío para usar la configurada)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+          cache: "gradle"
+
+      - name: Install mobile dependencies
+        run: npm ci
+
+      - name: Apply custom app URL if provided
+        env:
+          INPUT_URL: ${{ github.event.inputs.app_url }}
+          VAR_URL: ${{ vars.ANDROID_APP_URL }}
+        run: |
+          TARGET_URL="${INPUT_URL:-$VAR_URL}"
+          if [ -n "$TARGET_URL" ]; then
+            TARGET_URL="$TARGET_URL" node -e '
+              const fs = require("fs");
+              const cfg = JSON.parse(fs.readFileSync("capacitor.config.json", "utf8"));
+              const raw = process.env.TARGET_URL.replace(/\/+$/, "");
+              const host = new URL(raw).host;
+              cfg.server = {
+                ...cfg.server,
+                url: raw,
+                allowNavigation: Array.from(new Set([host, "*.vercel.app"]))
+              };
+              fs.writeFileSync("capacitor.config.json", JSON.stringify(cfg, null, 2) + "\n");
+            '
+            echo "Using custom server.url: $TARGET_URL"
+          fi
+
+      - name: Sync Capacitor Android assets
+        run: npx cap sync android
+
+      - name: Build Android APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x android/gradlew
+          mkdir -p dist-apk
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > /tmp/release.keystore
+            export ANDROID_KEYSTORE_PATH=/tmp/release.keystore
+            (cd android && ./gradlew assembleRelease --no-daemon)
+            cp android/app/build/outputs/apk/release/app-release.apk dist-apk/gym-planner-android.apk
+            echo "BUILD_KIND=release" >> "$GITHUB_ENV"
+          else
+            (cd android && ./gradlew assembleDebug --no-daemon)
+            cp android/app/build/outputs/apk/debug/app-debug.apk dist-apk/gym-planner-android.apk
+            echo "BUILD_KIND=debug" >> "$GITHUB_ENV"
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gym-planner-android-apk
+          path: mobile/dist-apk/gym-planner-android.apk
+          retention-days: 90
+
+      - name: Publish direct-download GitHub Release (android-latest)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NOTES="APK de Gym Planner para Android (${BUILD_KIND}, commit ${GITHUB_SHA::7}). Descárgalo directamente en tu móvil e instálalo."
+          if gh release view android-latest >/dev/null 2>&1; then
+            gh release upload android-latest dist-apk/gym-planner-android.apk --clobber
+            gh release edit android-latest --notes "$NOTES"
+          else
+            gh release create android-latest dist-apk/gym-planner-android.apk \
+              --title "Gym Planner Android (última versión)" \
+              --notes "$NOTES"
+          fi

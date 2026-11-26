@@ -43,3 +43,16 @@ next-env.d.ts
 
 # base de datos local de desarrollo
 .pglite
+
+# wrapper móvil Android (Capacitor)
+/mobile/node_modules
+/mobile/android/.gradle
+/mobile/android/.idea
+/mobile/android/local.properties
+/mobile/android/build
+/mobile/android/app/build
+/mobile/android/capacitor-cordova-android-plugins/build
+*.keystore
+*.jks
+*.apk
+*.aab

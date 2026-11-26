@@ -39,6 +39,29 @@ La app usa Drizzle sobre Postgres estándar, así que vale cualquier Postgres; l
 
 Se puede instalar en el móvil como app ("Añadir a pantalla de inicio").
 
+### App Android con temporizador flotante (`mobile/`)
+
+Para ver la cuenta atrás del descanso **flotando arriba mientras usas YouTube o Google** (y que suene al acabar sin pausar el vídeo), el repo incluye un wrapper ligero de Capacitor en `mobile/` que apunta a tu despliegue de Vercel:
+
+1. **Compilación automática en GitHub Actions:** el workflow `.github/workflows/android-apk.yml` genera `gym-planner-android.apk` al hacer push en `mobile/` (o manualmente desde *Actions → Build Android APK*) y lo publica en la release **`android-latest`** para descargarlo directo en el móvil.
+2. **Permisos en Android (OnePlus / OxygenOS):** tras instalar el APK y abrir la app, entra en **Más → Temporizador flotante (Android)** para activar:
+   - *Mostrar sobre otras apps* (pastilla flotante encima de YouTube/Google).
+   - *Notificaciones* (servicio en segundo plano y aviso al terminar).
+   - *Batería sin restricciones* (recomendado en OnePlus para evitar retrasos).
+   - Desde esa misma tarjeta puedes lanzar una **prueba de 10 s** para verlo en acción.
+3. **Actualizaciones sin reinstalar (opcional):** si quieres actualizar el APK encima del anterior sin perder permisos, añade los secretos `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` y `ANDROID_KEY_PASSWORD` en GitHub. Los cambios de la web en Vercel se ven al instante sin recompilar el APK.
+
+### App Android (pastilla flotante de descanso)
+
+La carpeta `mobile/` envuelve la web desplegada en Vercel con Capacitor para añadir un **temporizador de descanso nativo** en Android:
+
+- **Pastilla flotante arriba** (encima de YouTube y Google) con cuenta atrás en vivo, barra de progreso y botones `+15 s`, `Saltar` y `Abrir` al tocarla.
+- **Notificación persistente** con cronómetro nativo en cuenta atrás.
+- **Sonido al terminar con *audio ducking*** (baja un instante YouTube/Spotify sin pausar el vídeo; suena también por auriculares aunque el móvil esté en silencio) + vibración.
+- **Compilación automática en GitHub Actions** (`.github/workflows/android-apk.yml`): al hacer push en `mobile/` o lanzar el workflow manualmente en **Actions → Build Android APK**, genera `gym-planner-android.apk` en el artefacto del run y en el release `android-latest` para descargarlo directo desde el móvil.
+- Tras instalar el APK, abre **Más → Temporizador flotante (Android)** para activar los permisos (*Mostrar sobre otras apps*, *Notificaciones* y *Batería sin restricciones* en OnePlus/OxygenOS) y probar la pastilla con el botón de 10 s.
+- *(Opcional)* Si añades los secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` y `ANDROID_KEY_PASSWORD` en GitHub, el workflow firmará en modo `release` para actualizar el APK encima sin perder permisos.
+
 ### Notificaciones push (recordatorio diario)
 
 La app soporta notificaciones Web Push (Android Chrome / PWA, escritorio e iOS 16.4+ instalada) para recordar al final del día registrar kcal y actividad, abriendo `/cierre`:

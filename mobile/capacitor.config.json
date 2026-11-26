@@ -1,0 +1,19 @@
+{
+  "appId": "app.gymplanner.android",
+  "appName": "Gym Planner",
+  "webDir": "www",
+  "server": {
+    "url": "https://gym-planner-omega-livid.vercel.app",
+    "cleartext": false,
+    "allowNavigation": [
+      "gym-planner-omega-livid.vercel.app",
+      "*.vercel.app"
+    ]
+  },
+  "android": {
+    "backgroundColor": "#0b0f1e",
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  }
+}

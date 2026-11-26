@@ -5,6 +5,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { logout } from "@/app/actions";
 import { ApiTokens } from "@/components/ApiTokens";
+import { NativeRestTimerCard } from "@/components/NativeRestTimerCard";
 import { NotificationsCard } from "@/components/NotificationsCard";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProfileForm } from "@/components/ProfileForm";
@@ -62,6 +63,7 @@ export default async function ProfilePage() {
           </li>
         ))}
       </ul>
+      <NativeRestTimerCard />
       <Card className="p-4">
         <h2 className="mb-3 font-semibold">Notificaciones</h2>
         <NotificationsCard

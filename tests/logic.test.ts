@@ -31,6 +31,7 @@ import {
   shouldExpandRest,
 } from "../src/lib/rest-motivation";
 import { calendarCellEmojis, doneDayEmojis, doneDayTitle } from "../src/lib/week";
+import { reconcileRestWithNative, type NativeRestState } from "../src/lib/native-rest-timer";
 import type { CalendarDay } from "../src/lib/data";
 
 describe("propagate", () => {
@@ -498,5 +499,58 @@ describe("recordatorios diarios (Web Push)", () => {
     expect(buildReminderPayload({ missingIntake: true, missingActivity: true }).url).toBe("/cierre");
     expect(buildReminderPayload({ missingIntake: true, missingActivity: false }).title).toContain("kcal");
     expect(buildReminderPayload({ missingIntake: false, missingActivity: true }).title).toContain("actividad");
+  });
+});
+
+describe("reconciliación del temporizador externo Android", () => {
+  const baseNative: NativeRestState = {
+    active: true,
+    paused: false,
+    endAtMs: 1_090_000,
+    pausedLeftMs: 0,
+    totalSec: 90,
+    exerciseName: "Press banca",
+    setLabel: "Serie 2/4",
+    sessionId: 42,
+    lastAction: "none",
+    lastActionAtMs: 1_000_000,
+  };
+
+  it("sincroniza un descanso activo o ampliado (+15 s) desde la pastilla flotante", () => {
+    expect(reconcileRestWithNative({ ...baseNative, endAtMs: 1_105_000, totalSec: 105 }, 42, 1_020_000)).toEqual({
+      kind: "running",
+      endAtMs: 1_105_000,
+      totalSec: 105,
+    });
+  });
+
+  it("sincroniza un descanso en pausa", () => {
+    expect(
+      reconcileRestWithNative({ ...baseNative, paused: true, endAtMs: 0, pausedLeftMs: 45_000 }, 42, 1_020_000),
+    ).toEqual({
+      kind: "paused",
+      pausedLeftMs: 45_000,
+      totalSec: 90,
+    });
+  });
+
+  it("limpia el descanso en la web si el usuario pulsó Saltar o terminó en YouTube", () => {
+    expect(reconcileRestWithNative({ ...baseNative, active: false, lastAction: "skip" }, 42, 1_020_000)).toEqual({
+      kind: "clear",
+    });
+    expect(reconcileRestWithNative({ ...baseNative, active: false, lastAction: "finished" }, 42, 1_020_000)).toEqual({
+      kind: "clear",
+    });
+    expect(reconcileRestWithNative({ ...baseNative, endAtMs: 1_010_000 }, 42, 1_020_000)).toEqual({
+      kind: "clear",
+    });
+  });
+
+  it("ignora estados nativos de otra sesión o sin cambios", () => {
+    expect(reconcileRestWithNative(null, 42, 1_020_000)).toEqual({ kind: "keep" });
+    expect(reconcileRestWithNative({ ...baseNative, sessionId: 99 }, 42, 1_020_000)).toEqual({ kind: "keep" });
+    expect(reconcileRestWithNative({ ...baseNative, active: false, lastAction: "none" }, 42, 1_020_000)).toEqual({
+      kind: "keep",
+    });
   });
 });

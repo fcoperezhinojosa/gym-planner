@@ -26,6 +26,20 @@ import {
   type RestMoment,
   type RestRotationState,
 } from "@/lib/rest-motivation";
+import {
+  clearRestTimerState,
+  getNativeRestState,
+  pauseNativeRestTimer,
+  playWebRestChime,
+  readRestTimerState,
+  reconcileRestWithNative,
+  resumeNativeRestTimer,
+  startNativeRestTimer,
+  stopNativeRestTimer,
+  subscribeNativeRestActions,
+  updateNativeRestTimer,
+  writeRestTimerState,
+} from "@/lib/native-rest-timer";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ExerciseNotesField } from "./ExerciseNotesField";
 import { ExercisePicker } from "./ExercisePicker";
@@ -110,7 +124,13 @@ export function SessionRunner({
   const [restExpanded, setRestExpanded] = useState(false);
   const [restMoment, setRestMoment] = useState<RestMoment>({ animationId: "hydrate", phraseIndex: 0 });
   const [restSetContext, setRestSetContext] = useState<{ setNumber: number; totalSets: number } | null>(null);
+  const restSetContextRef = useRef<{ setNumber: number; totalSets: number } | null>(null);
+  const restExerciseNameRef = useRef<string>("");
+  const nativeRestActiveRef = useRef<boolean>(false);
   const restRotationRef = useRef<RestRotationState>(EMPTY_REST_ROTATION);
+  useEffect(() => {
+    restSetContextRef.current = restSetContext;
+  }, [restSetContext]);
   const [localProgress, setLocalProgress] = useState<Record<number, Progress>>({});
   const cancelSavesRef = useRef(new Map<number, () => void>());
 
@@ -154,23 +174,124 @@ export function SessionRunner({
   const exerciseIds = session.exercises.map((e) => e.id);
   const idsKey = exerciseIds.join(",");
 
-  // Al montar en cliente, recuperar estado de pausa y cola pendiente.
+  // Al montar en cliente, recuperar estado de pausa, descanso activo y cola pendiente.
   useEffect(() => {
     if (finished) {
       clearFinish(session.id);
       clearPauseState(session.id);
+      clearRestTimerState(session.id);
+      nativeRestActiveRef.current = false;
+      void stopNativeRestTimer();
       return;
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPauseState(readPauseState(session.id));
     setQueuedFinish(pendingFinish(session.id) !== null);
+
+    const savedRest = readRestTimerState(session.id);
+    if (savedRest) {
+      restExerciseNameRef.current = savedRest.exerciseName;
+      setRestTotal(savedRest.totalSec);
+      setRestExpanded(shouldExpandRest(savedRest.totalSec));
+      setRestSetContext(
+        savedRest.totalSets > 0 ? { setNumber: savedRest.setNumber, totalSets: savedRest.totalSets } : null,
+      );
+      setRestPausedMs(savedRest.pausedLeftMs);
+      setRestUntil(savedRest.endAtMs);
+    }
+
+    const syncFromNative = async () => {
+      const native = await getNativeRestState();
+      const nowMs = Date.now();
+      const reconciled = reconcileRestWithNative(native, session.id, nowMs);
+      if (reconciled.kind === "keep") return;
+      setNow(nowMs);
+      if (reconciled.kind === "clear") {
+        nativeRestActiveRef.current = false;
+        setRestUntil(null);
+        setRestPausedMs(null);
+        clearRestTimerState(session.id);
+        return;
+      }
+      nativeRestActiveRef.current = true;
+      setRestTotal(reconciled.totalSec);
+      if (reconciled.kind === "paused") {
+        setRestUntil(null);
+        setRestPausedMs(reconciled.pausedLeftMs);
+        writeRestTimerState(session.id, {
+          endAtMs: null,
+          pausedLeftMs: reconciled.pausedLeftMs,
+          totalSec: reconciled.totalSec,
+          exerciseName: native?.exerciseName || restExerciseNameRef.current,
+          setNumber: restSetContextRef.current?.setNumber ?? 0,
+          totalSets: restSetContextRef.current?.totalSets ?? 0,
+        });
+      } else {
+        setRestPausedMs(null);
+        setRestUntil(reconciled.endAtMs);
+        writeRestTimerState(session.id, {
+          endAtMs: reconciled.endAtMs,
+          pausedLeftMs: null,
+          totalSec: reconciled.totalSec,
+          exerciseName: native?.exerciseName || restExerciseNameRef.current,
+          setNumber: restSetContextRef.current?.setNumber ?? 0,
+          totalSets: restSetContextRef.current?.totalSets ?? 0,
+        });
+      }
+    };
+
+    void syncFromNative();
+
+    const unsubscribeNative = subscribeNativeRestActions((ev) => {
+      if (ev.sessionId !== 0 && ev.sessionId !== session.id) return;
+      const nowMs = Date.now();
+      setNow(nowMs);
+      if (ev.action === "add15" && ev.endAtMs > nowMs) {
+        nativeRestActiveRef.current = true;
+        setRestPausedMs(null);
+        setRestUntil(ev.endAtMs);
+        setRestTotal(ev.totalSec);
+        writeRestTimerState(session.id, {
+          endAtMs: ev.endAtMs,
+          pausedLeftMs: null,
+          totalSec: ev.totalSec,
+          exerciseName: restExerciseNameRef.current,
+          setNumber: restSetContextRef.current?.setNumber ?? 0,
+          totalSets: restSetContextRef.current?.totalSets ?? 0,
+        });
+      } else if (ev.action === "skip" || ev.action === "finished") {
+        nativeRestActiveRef.current = false;
+        setRestUntil(null);
+        setRestPausedMs(null);
+        clearRestTimerState(session.id);
+      }
+    });
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        setNow(Date.now());
+        void syncFromNative();
+      }
+    };
+    const onFocus = () => {
+      setNow(Date.now());
+      void syncFromNative();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
+
     const run = () => {
       if (!navigator.onLine) return;
       syncSession(session.id, idsKey ? idsKey.split(",").map(Number) : []).catch(() => {});
     };
     run();
     window.addEventListener("online", run);
-    return () => window.removeEventListener("online", run);
+    return () => {
+      unsubscribeNative();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", run);
+    };
   }, [finished, session.id, idsKey]);
 
   const isPaused = pauseState.pausedAt !== null;
@@ -187,11 +308,16 @@ export function SessionRunner({
       if (restRef.current && restRef.current <= n) {
         restRef.current = null;
         setRestUntil(null);
-        if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate?.([200, 100, 200]);
+        clearRestTimerState(session.id);
+        if (!nativeRestActiveRef.current) {
+          playWebRestChime();
+          if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate?.([200, 100, 200]);
+        }
+        nativeRestActiveRef.current = false;
       }
     }, 1000);
     return () => clearInterval(t);
-  }, [finished, isPaused]);
+  }, [finished, isPaused, session.id]);
 
   const startedAtMs = new Date(session.startedAt).getTime();
   const elapsed = computeElapsedSec(startedAtMs, now, pauseState);
@@ -205,16 +331,55 @@ export function SessionRunner({
       setPauseState(next);
       writePauseState(session.id, next);
       if (restPausedMs !== null && restPausedMs > 0) {
-        setRestUntil(n + restPausedMs);
+        const nextEnd = n + restPausedMs;
+        setRestUntil(nextEnd);
         setRestPausedMs(null);
+        writeRestTimerState(session.id, {
+          endAtMs: nextEnd,
+          pausedLeftMs: null,
+          totalSec: restTotal,
+          exerciseName: restExerciseNameRef.current,
+          setNumber: restSetContext?.setNumber ?? 0,
+          totalSets: restSetContext?.totalSets ?? 0,
+        });
+        if (nativeRestActiveRef.current) {
+          void resumeNativeRestTimer(nextEnd, restTotal);
+        } else {
+          const setLabel =
+            restSetContext && restSetContext.totalSets > 0
+              ? `Serie ${restSetContext.setNumber}/${restSetContext.totalSets}`
+              : "Descanso";
+          void startNativeRestTimer({
+            endAtMs: nextEnd,
+            totalSec: restTotal,
+            exerciseName: restExerciseNameRef.current,
+            setLabel,
+            sessionId: session.id,
+            sessionUrl: `/sesion/${session.id}`,
+          }).then((started) => {
+            nativeRestActiveRef.current = started;
+          });
+        }
       }
     } else {
       const next = pauseTimer(pauseState, n);
       setPauseState(next);
       writePauseState(session.id, next);
       if (restUntil && restUntil > n) {
-        setRestPausedMs(restUntil - n);
+        const leftMs = restUntil - n;
+        setRestPausedMs(leftMs);
         setRestUntil(null);
+        writeRestTimerState(session.id, {
+          endAtMs: null,
+          pausedLeftMs: leftMs,
+          totalSec: restTotal,
+          exerciseName: restExerciseNameRef.current,
+          setNumber: restSetContext?.setNumber ?? 0,
+          totalSets: restSetContext?.totalSets ?? 0,
+        });
+        if (nativeRestActiveRef.current) {
+          void pauseNativeRestTimer(leftMs, restTotal);
+        }
       }
     }
   }
@@ -224,6 +389,9 @@ export function SessionRunner({
     for (const cancel of cancelSavesRef.current.values()) cancel();
     clearFinish(session.id);
     clearPauseState(session.id);
+    clearRestTimerState(session.id);
+    nativeRestActiveRef.current = false;
+    void stopNativeRestTimer();
     for (const e of session.exercises) {
       clearSets(e.id);
       clearExerciseNotes(e.id);
@@ -439,16 +607,47 @@ export function SessionRunner({
               if (finished || ex.restSeconds <= 0) return;
               const { moment, nextState } = pickNextRestMoment(restRotationRef.current);
               restRotationRef.current = nextState;
+              restExerciseNameRef.current = ex.name;
+              const setNumber = setIndex + 1;
+              const setLabel = totalSets > 0 ? `Serie ${setNumber}/${totalSets}` : "Descanso";
               setRestMoment(moment);
-              setRestSetContext({ setNumber: setIndex + 1, totalSets });
+              setRestSetContext({ setNumber, totalSets });
               setRestExpanded(shouldExpandRest(ex.restSeconds));
               setRestTotal(ex.restSeconds);
               if (isPaused) {
-                setRestPausedMs(ex.restSeconds * 1000);
+                const pausedMs = ex.restSeconds * 1000;
+                setRestPausedMs(pausedMs);
                 setRestUntil(null);
+                writeRestTimerState(session.id, {
+                  endAtMs: null,
+                  pausedLeftMs: pausedMs,
+                  totalSec: ex.restSeconds,
+                  exerciseName: ex.name,
+                  setNumber,
+                  totalSets,
+                });
               } else {
+                const endAt = Date.now() + ex.restSeconds * 1000;
                 setRestPausedMs(null);
-                setRestUntil(Date.now() + ex.restSeconds * 1000);
+                setRestUntil(endAt);
+                writeRestTimerState(session.id, {
+                  endAtMs: endAt,
+                  pausedLeftMs: null,
+                  totalSec: ex.restSeconds,
+                  exerciseName: ex.name,
+                  setNumber,
+                  totalSets,
+                });
+                void startNativeRestTimer({
+                  endAtMs: endAt,
+                  totalSec: ex.restSeconds,
+                  exerciseName: ex.name,
+                  setLabel,
+                  sessionId: session.id,
+                  sessionUrl: `/sesion/${session.id}`,
+                }).then((started) => {
+                  nativeRestActiveRef.current = started;
+                });
               }
             }}
             onRemove={() => setRemovingEx({ id: ex.id, name: ex.name })}
@@ -476,13 +675,40 @@ export function SessionRunner({
           setContext={restSetContext}
           onToggleExpanded={() => setRestExpanded((cur) => !cur)}
           onAdd15={() => {
-            setRestTotal((t) => t + 15);
-            if (restPausedMs !== null) setRestPausedMs((ms) => (ms ?? 0) + 15000);
-            else setRestUntil((r) => (r ?? Date.now()) + 15000);
+            const nextTotal = restTotal + 15;
+            setRestTotal(nextTotal);
+            if (restPausedMs !== null) {
+              const nextPaused = restPausedMs + 15000;
+              setRestPausedMs(nextPaused);
+              writeRestTimerState(session.id, {
+                endAtMs: null,
+                pausedLeftMs: nextPaused,
+                totalSec: nextTotal,
+                exerciseName: restExerciseNameRef.current,
+                setNumber: restSetContext?.setNumber ?? 0,
+                totalSets: restSetContext?.totalSets ?? 0,
+              });
+              if (nativeRestActiveRef.current) void pauseNativeRestTimer(nextPaused, nextTotal);
+            } else {
+              const nextEnd = (restUntil ?? Date.now()) + 15000;
+              setRestUntil(nextEnd);
+              writeRestTimerState(session.id, {
+                endAtMs: nextEnd,
+                pausedLeftMs: null,
+                totalSec: nextTotal,
+                exerciseName: restExerciseNameRef.current,
+                setNumber: restSetContext?.setNumber ?? 0,
+                totalSets: restSetContext?.totalSets ?? 0,
+              });
+              if (nativeRestActiveRef.current) void updateNativeRestTimer(nextEnd, nextTotal);
+            }
           }}
           onSkip={() => {
             setRestUntil(null);
             setRestPausedMs(null);
+            clearRestTimerState(session.id);
+            nativeRestActiveRef.current = false;
+            void stopNativeRestTimer();
           }}
         />
       )}
@@ -512,10 +738,16 @@ export function SessionRunner({
           onQueued={() => {
             setQueuedFinish(true);
             setFinishing(false);
+            clearRestTimerState(session.id);
+            nativeRestActiveRef.current = false;
+            void stopNativeRestTimer();
           }}
           onFinished={() => {
             setQueuedFinish(false);
             setFinishing(false);
+            clearRestTimerState(session.id);
+            nativeRestActiveRef.current = false;
+            void stopNativeRestTimer();
           }}
           hasRoutine={session.routineId !== null}
           hasExerciseChanges={hasExerciseChanges}
