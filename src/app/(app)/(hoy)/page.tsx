@@ -6,7 +6,6 @@ import TodayLoading from "./loading";
 import { ActivityForm } from "@/components/ActivityForm";
 import { AddActivityToggle } from "@/components/AddActivityToggle";
 import { dayEmoji, dayTitle } from "@/components/DayBadge";
-import { DayOverride } from "@/components/DayOverride";
 import { DeleteActivityButton } from "@/components/DeleteActivityButton";
 import { DeleteWorkoutButton } from "@/components/DeleteWorkoutButton";
 import { StartWorkoutButton } from "@/components/StartWorkoutButton";
@@ -257,9 +256,6 @@ async function TodayContent() {
               </StartWorkoutButton>
             </form>
           )}
-          <div className="-mt-2 flex flex-wrap items-center justify-center gap-x-6 text-muted [&>button]:h-11 [&>button]:rounded-lg [&>button]:text-sm [&>button]:font-semibold [&>button]:text-muted">
-            <DayOverride date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions} dayLabel="hoy" />
-          </div>
         </>
       ) : (
         <TodayPlanProvider date={today} current={day.planned} isOverride={day.planned.source === "override"} routines={routineOptions}>
