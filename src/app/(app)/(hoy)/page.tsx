@@ -336,48 +336,46 @@ async function TodayContent() {
         </div>
       </div>
 
-      {!done && (
-        <section aria-label="Plan de la semana" className="space-y-2.5 rounded-3xl border border-line bg-surface px-4 py-3 md:space-y-3.5 md:px-[18px] md:py-4">
-          <div className="flex items-baseline justify-between">
-            <h2 className="font-display text-[17px] font-bold">Plan de la semana</h2>
-            <Link href="/calendario" prefetch={true} className="-my-3.5 inline-flex h-11 items-center text-[13px] font-semibold text-accent-text hover:underline">
-              Ver calendario
-            </Link>
-          </div>
-          <div className="relative">
-            <span aria-hidden="true" className="absolute inset-x-[17px] top-4 h-0 border-t-2 border-dashed border-line" />
-            <div className="relative flex justify-between">
-              {week.map((x, i) => {
-                const isDone = dayDone(x);
-                const isToday = x.date === today;
-                return (
-                  <Link
-                    key={x.date}
-                    href={`/calendario?d=${x.date}`}
-                    prefetch={true}
-                    aria-label={`${WEEKDAYS[i]}: ${isDone ? "hecho" : dayTitle(x.planned)}`}
-                    className="flex flex-col items-center gap-1.5"
+      <section aria-label="Plan de la semana" className="space-y-2.5 rounded-3xl border border-line bg-surface px-4 py-3 md:space-y-3.5 md:px-[18px] md:py-4">
+        <div className="flex items-baseline justify-between">
+          <h2 className="font-display text-[17px] font-bold">Plan de la semana</h2>
+          <Link href="/calendario" prefetch={true} className="-my-3.5 inline-flex h-11 items-center text-[13px] font-semibold text-accent-text hover:underline">
+            Ver calendario
+          </Link>
+        </div>
+        <div className="relative">
+          <span aria-hidden="true" className="absolute inset-x-[17px] top-4 h-0 border-t-2 border-dashed border-line" />
+          <div className="relative flex justify-between">
+            {week.map((x, i) => {
+              const isDone = dayDone(x);
+              const isToday = x.date === today;
+              return (
+                <Link
+                  key={x.date}
+                  href={`/calendario?d=${x.date}`}
+                  prefetch={true}
+                  aria-label={`${WEEKDAYS[i]}: ${isDone ? "hecho" : dayTitle(x.planned)}`}
+                  className="flex flex-col items-center gap-1.5"
+                >
+                  <span
+                    className={cx(
+                      "flex h-[34px] w-[34px] items-center justify-center rounded-full",
+                      isDone
+                        ? "bg-navy text-periwinkle"
+                        : isToday && x.planned.kind !== "rest"
+                          ? "bg-accent text-accent-fg shadow-[0_0_0_4px_var(--accent-soft)]"
+                          : "border-[1.5px] border-line bg-card text-muted/70",
+                    )}
                   >
-                    <span
-                      className={cx(
-                        "flex h-[34px] w-[34px] items-center justify-center rounded-full",
-                        isDone
-                          ? "bg-navy text-periwinkle"
-                          : isToday && x.planned.kind !== "rest"
-                            ? "bg-accent text-accent-fg shadow-[0_0_0_4px_var(--accent-soft)]"
-                            : "border-[1.5px] border-line bg-card text-muted/70",
-                      )}
-                    >
-                      {isDone ? <CheckIcon size={15} /> : x.planned.kind === "rest" ? <MoonIcon size={15} /> : x.planned.kind === "workout" ? <DumbbellIcon size={17} strokeWidth={2.2} /> : <span className="text-sm leading-none" aria-hidden="true">{dayEmoji(x.planned).slice(0, 2)}</span>}
-                    </span>
-                    <span className={cx("text-xs", isToday ? "font-bold text-accent-text" : "font-semibold text-muted")}>{WEEKDAYS_SHORT[i]}</span>
-                  </Link>
-                );
-              })}
-            </div>
+                    {isDone ? <CheckIcon size={15} /> : x.planned.kind === "rest" ? <MoonIcon size={15} /> : x.planned.kind === "workout" ? <DumbbellIcon size={17} strokeWidth={2.2} /> : <span className="text-sm leading-none" aria-hidden="true">{dayEmoji(x.planned).slice(0, 2)}</span>}
+                  </span>
+                  <span className={cx("text-xs", isToday ? "font-bold text-accent-text" : "font-semibold text-muted")}>{WEEKDAYS_SHORT[i]}</span>
+                </Link>
+              );
+            })}
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {routineOptions.length === 0 && (
         <Card className="flex items-center justify-between gap-3 rounded-[20px] p-4">
